@@ -1,0 +1,22 @@
+.git
+.agents
+.codex
+.venv
+venv
+__pycache__
+*.pyc
+.pytest_cache
+
+.env
+.env.*
+!.env.example
+!.env.production.example
+OpenAI Key.txt
+
+data
+*.log
+server.log
+server.err.log
+
+frontend/node_modules
+frontend/dist

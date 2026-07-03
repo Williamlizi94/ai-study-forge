@@ -1,0 +1,37 @@
+1. Task Overview
+
+The user was building and debugging an AI Study Assistant MVP. The product was intended to help students upload or paste study material, generate AI notes, cheat sheets, flashcards, quizzes, mistake review, and tutor-style answers. The session covered local development, OpenAI API configuration, document upload support, React/FastAPI implementation changes, environment setup, Docker preparation, and possible AWS deployment.
+
+The work was not a single isolated bug fix. It gradually evolved from product planning into frontend redesign, backend API changes, OpenAI billing and key setup questions, local server startup, feature testing, and deployment readiness.
+
+2. What Made the Session Complex
+
+The session involved many connected steps that depended on each other. The app had to run locally before the user could test features. The OpenAI API key and environment variables had to be configured correctly before real AI generation could work. The frontend and backend had to stay aligned as features were added, removed, or renamed. Later, the project also needed Docker files, production environment templates, and documentation for future AWS deployment.
+
+There were also several different operating modes: local development, mock AI testing, real OpenAI testing, Docker container testing, account/login mode, and future production deployment. These modes needed clearer separation because each one required different assumptions and commands.
+
+3. Where the Agent Performed Poorly
+
+The guidance became too long and repetitive in several places. Instead of always giving the next immediate action, the agent often explained broader architecture or deployment considerations, which made the workflow feel heavier than necessary.
+
+Some instructions were broad rather than directly solving the user's immediate issue. For example, when the user asked what to do next for AWS deployment, the answer mixed local Docker verification, production database setup, ECR, domain setup, and HTTPS into one flow. Those topics were relevant, but they were not always presented as a clean step-by-step sequence for a beginner.
+
+The agent did not always clearly separate local development, Docker testing, and AWS deployment. The user had to keep asking follow-up questions such as what the next step was, how to configure things, whether the app was ready to publish, and what still needed to be done.
+
+The workflow did not always feel smooth or reliable. There were many incremental corrections, repeated restarts, feature changes, and explanations. The agent did make progress on the codebase, but the interaction required too much back-and-forth for the user to understand the exact current state and next action.
+
+4. Specific Example
+
+One confusing point was the transition from local testing at http://127.0.0.1:8000 to Docker and AWS deployment. The project was already running locally, but when deployment preparation started, the agent added Docker-related files and explained commands such as building a Docker image and running the container. The Docker build could not be completed because Docker Desktop's Linux engine was not running. The agent then told the user to open Docker Desktop and later run:
+
+docker build -t ai-study-assistant:local .
+
+and then test the app again at http://127.0.0.1:8000.
+
+This was technically reasonable, but the transition was not explained cleanly enough. The user could easily wonder whether they were still testing the local FastAPI app, testing the Dockerized app, or preparing the actual AWS deployment. The AWS deployment preparation also introduced more concepts, such as PostgreSQL, production environment variables, container hosting, health checks, domains, and HTTPS. These were important, but the immediate next step should have been framed more simply.
+
+5. Final Outcome
+
+By the end of the session, the project had a working local AI Study Assistant MVP with many implemented features and some AWS deployment preparation. The agent added Docker and production configuration files, updated documentation, and verified that the backend compiled and the frontend production build succeeded. However, Docker image verification was blocked because Docker Desktop's Linux engine was not running.
+
+This session is a useful example of an agent struggling with a complex coding and deployment workflow. The agent completed real work and made meaningful progress, but the communication and sequencing were not smooth enough. The user had to repeatedly ask what to do next, and the distinction between local development, Docker testing, and AWS deployment was not always clear.

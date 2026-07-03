@@ -1,0 +1,150 @@
+name: Deploy to AWS
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: ai-study-assistant
+  EB_APPLICATION_NAME: ai-study-assistant
+  EB_ENVIRONMENT_NAME: ai-study-assistant-env
+  CONTAINER_PORT: "8000"
+
+jobs:
+  deploy:
+    name: Build and deploy
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Resolve AWS account
+        id: aws
+        run: |
+          echo "account_id=$(aws sts get-caller-identity --query Account --output text)" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Ensure ECR repository exists
+        run: |
+          aws ecr describe-repositories \
+            --repository-names "$ECR_REPOSITORY" \
+            --region "$AWS_REGION" >/dev/null 2>&1 || \
+          aws ecr create-repository \
+            --repository-name "$ECR_REPOSITORY" \
+            --image-scanning-configuration scanOnPush=true \
+            --region "$AWS_REGION"
+
+      - name: Build and push Docker image
+        env:
+          ECR_REGISTRY: ${{ steps.ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build \
+            -t "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" \
+            -t "$ECR_REGISTRY/$ECR_REPOSITORY:latest" \
+            .
+          docker push "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          docker push "$ECR_REGISTRY/$ECR_REPOSITORY:latest"
+
+      - name: Create Elastic Beanstalk bundle
+        env:
+          ECR_REGISTRY: ${{ steps.ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          mkdir -p deploy-artifacts
+          cat > deploy-artifacts/Dockerrun.aws.json <<EOF
+          {
+            "AWSEBDockerrunVersion": "1",
+            "Image": {
+              "Name": "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG",
+              "Update": "true"
+            },
+            "Ports": [
+              {
+                "ContainerPort": "$CONTAINER_PORT"
+              }
+            ]
+          }
+          EOF
+          cd deploy-artifacts
+          zip ai-study-assistant-eb.zip Dockerrun.aws.json
+
+      - name: Deploy Elastic Beanstalk version
+        id: eb
+        run: |
+          VERSION_LABEL="github-${GITHUB_RUN_NUMBER}-${GITHUB_SHA::7}"
+          S3_BUCKET="elasticbeanstalk-${AWS_REGION}-${{ steps.aws.outputs.account_id }}"
+          S3_KEY="github-actions/${VERSION_LABEL}.zip"
+
+          aws s3 cp deploy-artifacts/ai-study-assistant-eb.zip "s3://${S3_BUCKET}/${S3_KEY}" \
+            --region "$AWS_REGION"
+
+          aws elasticbeanstalk create-application-version \
+            --application-name "$EB_APPLICATION_NAME" \
+            --version-label "$VERSION_LABEL" \
+            --source-bundle S3Bucket="$S3_BUCKET",S3Key="$S3_KEY" \
+            --region "$AWS_REGION"
+
+          aws elasticbeanstalk update-environment \
+            --environment-name "$EB_ENVIRONMENT_NAME" \
+            --version-label "$VERSION_LABEL" \
+            --region "$AWS_REGION"
+
+          echo "version_label=$VERSION_LABEL" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for environment
+        run: |
+          for attempt in {1..60}; do
+            STATUS=$(aws elasticbeanstalk describe-environments \
+              --environment-names "$EB_ENVIRONMENT_NAME" \
+              --region "$AWS_REGION" \
+              --query "Environments[0].Status" \
+              --output text)
+            HEALTH=$(aws elasticbeanstalk describe-environments \
+              --environment-names "$EB_ENVIRONMENT_NAME" \
+              --region "$AWS_REGION" \
+              --query "Environments[0].Health" \
+              --output text)
+            VERSION=$(aws elasticbeanstalk describe-environments \
+              --environment-names "$EB_ENVIRONMENT_NAME" \
+              --region "$AWS_REGION" \
+              --query "Environments[0].VersionLabel" \
+              --output text)
+
+            echo "Attempt $attempt: status=$STATUS health=$HEALTH version=$VERSION"
+
+            if [ "$STATUS" = "Ready" ] && [ "$VERSION" = "${{ steps.eb.outputs.version_label }}" ]; then
+              exit 0
+            fi
+
+            sleep 10
+          done
+
+          echo "Elastic Beanstalk environment did not become ready in time."
+          exit 1
+
+      - name: Smoke test production health endpoint
+        run: |
+          CNAME=$(aws elasticbeanstalk describe-environments \
+            --environment-names "$EB_ENVIRONMENT_NAME" \
+            --region "$AWS_REGION" \
+            --query "Environments[0].CNAME" \
+            --output text)
+          curl --fail --show-error --silent "http://${CNAME}/api/health"
