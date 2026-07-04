@@ -165,6 +165,26 @@ If account or beta auth is enabled, log in first and pass the returned token:
 .\scripts\smoke_test.ps1 -BaseUrl "https://yourdomain.com" -AuthToken "token" -RunStudyApi
 ```
 
+## Production Readiness
+
+Before a public beta or paid launch, run the readiness check:
+
+```powershell
+.\scripts\production_readiness.ps1
+```
+
+For a deployed app:
+
+```powershell
+.\scripts\production_readiness.ps1 -SkipBuild -BaseUrl "https://yourdomain.com"
+```
+
+Then complete the launch checklist in:
+
+```text
+docs/launch-checklist.md
+```
+
 ## Beta Safety Controls
 
 - Access password gate for private beta testing
