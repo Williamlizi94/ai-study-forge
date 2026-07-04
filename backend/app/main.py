@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 import json
+import secrets
+import urllib.parse
+import urllib.request
 from pathlib import Path
+from typing import Any
 
-from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from openai import APIConnectionError, AuthenticationError, BadRequestError, NotFoundError
 from openai import PermissionDeniedError, RateLimitError
@@ -15,9 +19,11 @@ from backend.app.auth import (
     auth_mode,
     auth_required,
     create_access_token,
+    create_oauth_state,
     hash_password,
     normalize_email,
     require_access,
+    verify_oauth_state,
     verify_access_password,
     verify_password,
 )
@@ -30,6 +36,7 @@ from backend.app.database import (
     delete_session,
     DuplicateUserError,
     get_session,
+    get_or_create_google_user,
     get_user_by_email,
     record_ai_usage,
     init_db,
@@ -80,6 +87,7 @@ from backend.app.schemas import (
 
 
 app = FastAPI(title="AI Study Assistant", version="0.1.0")
+GOOGLE_OAUTH_STATE_COOKIE = "ai_study_google_oauth_state"
 
 app.add_middleware(
     CORSMiddleware,
@@ -119,6 +127,7 @@ def api_auth_status() -> AuthStatus:
     return AuthStatus(
         auth_required=auth_required(),
         auth_mode=auth_mode(),
+        google_auth_enabled=settings.google_oauth_enabled,
         per_user_daily_ai_limit=settings.per_user_daily_ai_limit,
         global_daily_ai_limit=settings.global_daily_ai_limit,
     )
@@ -152,6 +161,80 @@ def api_auth_register(payload: AuthRegisterRequest) -> AuthLoginResponse:
     except DuplicateUserError as exc:
         raise HTTPException(status_code=409, detail="Email is already registered.") from exc
     return _auth_response_for_user(user)
+
+
+@app.get("/api/auth/google/start")
+def api_auth_google_start(request: Request) -> RedirectResponse:
+    if auth_mode() != "account":
+        raise HTTPException(status_code=404, detail="User accounts are not enabled.")
+    if not settings.google_oauth_enabled:
+        raise HTTPException(status_code=503, detail="Google sign-in is not configured.")
+
+    state = create_oauth_state()
+    params = urllib.parse.urlencode(
+        {
+            "client_id": settings.google_client_id,
+            "redirect_uri": _google_redirect_uri(request),
+            "response_type": "code",
+            "scope": "openid email profile",
+            "state": state,
+            "prompt": "select_account",
+        }
+    )
+    response = RedirectResponse(f"https://accounts.google.com/o/oauth2/v2/auth?{params}")
+    response.set_cookie(
+        GOOGLE_OAUTH_STATE_COOKIE,
+        state,
+        httponly=True,
+        max_age=600,
+        samesite="lax",
+        secure=_google_oauth_cookie_secure(request),
+    )
+    return response
+
+
+@app.get("/api/auth/google/callback")
+def api_auth_google_callback(
+    request: Request,
+    code: str | None = None,
+    state: str | None = None,
+    error: str | None = None,
+) -> RedirectResponse:
+    if error:
+        return _clear_google_oauth_cookie(_auth_redirect_error("Google sign-in was cancelled."))
+
+    try:
+        if auth_mode() != "account":
+            raise HTTPException(status_code=404, detail="User accounts are not enabled.")
+        if not settings.google_oauth_enabled:
+            raise HTTPException(status_code=503, detail="Google sign-in is not configured.")
+        if not code or not state:
+            raise HTTPException(status_code=422, detail="Google sign-in response is incomplete.")
+
+        state_cookie = request.cookies.get(GOOGLE_OAUTH_STATE_COOKIE)
+        if not state_cookie or not secrets.compare_digest(state, state_cookie):
+            raise HTTPException(status_code=401, detail="Invalid Google sign-in state.")
+        verify_oauth_state(state)
+        token_payload = _exchange_google_code(code, _google_redirect_uri(request))
+        access_token = str(token_payload.get("access_token") or "")
+        if not access_token:
+            raise HTTPException(status_code=502, detail="Google did not return an access token.")
+
+        userinfo = _fetch_google_userinfo(access_token)
+        email = normalize_email(str(userinfo.get("email") or ""))
+        google_sub = str(userinfo.get("sub") or "").strip()
+        email_verified = userinfo.get("email_verified")
+        if isinstance(email_verified, str):
+            email_verified = email_verified.lower() == "true"
+        if not email or "@" not in email or not google_sub or not email_verified:
+            raise HTTPException(status_code=401, detail="Google account email could not be verified.")
+
+        user = get_or_create_google_user(email=email, google_sub=google_sub)
+        return _clear_google_oauth_cookie(_auth_redirect_success(_auth_response_for_user(user)))
+    except HTTPException as exc:
+        return _clear_google_oauth_cookie(_auth_redirect_error(str(exc.detail)))
+    except Exception:
+        return _clear_google_oauth_cookie(_auth_redirect_error("Google sign-in failed. Try again."))
 
 
 @app.get("/api/study/sessions", response_model=list[StudySessionListItem])
@@ -695,6 +778,72 @@ def _auth_response_for_user(user: dict[str, str]) -> AuthLoginResponse:
         token=create_access_token(visitor_id=user["id"], email=user["email"]),
         user=auth_user,
     )
+
+
+def _google_redirect_uri(request: Request) -> str:
+    if settings.google_redirect_uri:
+        return settings.google_redirect_uri
+    return str(request.url_for("api_auth_google_callback"))
+
+
+def _google_oauth_cookie_secure(request: Request) -> bool:
+    if settings.google_redirect_uri:
+        return settings.google_redirect_uri.startswith("https://")
+    return request.url.scheme == "https"
+
+
+def _exchange_google_code(code: str, redirect_uri: str) -> dict[str, Any]:
+    payload = urllib.parse.urlencode(
+        {
+            "client_id": settings.google_client_id,
+            "client_secret": settings.google_client_secret,
+            "code": code,
+            "grant_type": "authorization_code",
+            "redirect_uri": redirect_uri,
+        }
+    ).encode("utf-8")
+    request = urllib.request.Request(
+        "https://oauth2.googleapis.com/token",
+        data=payload,
+        headers={
+            "Accept": "application/json",
+            "Content-Type": "application/x-www-form-urlencoded",
+        },
+        method="POST",
+    )
+    return _read_json_response(request)
+
+
+def _fetch_google_userinfo(access_token: str) -> dict[str, Any]:
+    request = urllib.request.Request(
+        "https://openidconnect.googleapis.com/v1/userinfo",
+        headers={
+            "Accept": "application/json",
+            "Authorization": f"Bearer {access_token}",
+        },
+    )
+    return _read_json_response(request)
+
+
+def _read_json_response(request: urllib.request.Request) -> dict[str, Any]:
+    with urllib.request.urlopen(request, timeout=12) as response:
+        return json.loads(response.read().decode("utf-8"))
+
+
+def _auth_redirect_success(auth_response: AuthLoginResponse) -> RedirectResponse:
+    token = urllib.parse.quote(auth_response.token, safe="")
+    email = urllib.parse.quote(auth_response.user.email if auth_response.user else "", safe="")
+    return RedirectResponse(f"/#auth_token={token}&auth_email={email}", status_code=303)
+
+
+def _auth_redirect_error(message: str) -> RedirectResponse:
+    encoded_message = urllib.parse.quote(message, safe="")
+    return RedirectResponse(f"/#auth_error={encoded_message}", status_code=303)
+
+
+def _clear_google_oauth_cookie(response: RedirectResponse) -> RedirectResponse:
+    response.delete_cookie(GOOGLE_OAUTH_STATE_COOKIE)
+    return response
 
 
 def _record_ai_request(visitor_id: str) -> None:

@@ -34,6 +34,10 @@ class Settings:
         self.auth_token_secret = os.getenv("AUTH_TOKEN_SECRET", self.access_password)
         self.auth_token_ttl_days = int(os.getenv("AUTH_TOKEN_TTL_DAYS", "14"))
         self.require_user_accounts = _env_bool("REQUIRE_USER_ACCOUNTS", False)
+        self.google_client_id = os.getenv("GOOGLE_CLIENT_ID", "").strip()
+        self.google_client_secret = os.getenv("GOOGLE_CLIENT_SECRET", "").strip()
+        self.google_redirect_uri = os.getenv("GOOGLE_REDIRECT_URI", "").strip()
+        self.google_oauth_enabled = bool(self.google_client_id and self.google_client_secret)
         self.mock_ai = _env_bool("MOCK_AI", False)
         self.per_user_daily_ai_limit = int(os.getenv("PER_USER_DAILY_AI_LIMIT", "20"))
         self.global_daily_ai_limit = int(os.getenv("GLOBAL_DAILY_AI_LIMIT", "100"))
@@ -75,6 +79,8 @@ class Settings:
             or len(self.auth_token_secret) < 32
         ):
             errors.append("AUTH_TOKEN_SECRET must be a random secret with at least 32 characters.")
+        if bool(self.google_client_id) != bool(self.google_client_secret):
+            errors.append("GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be configured together.")
 
         if errors:
             message = "Production configuration is not safe:\n- " + "\n- ".join(errors)

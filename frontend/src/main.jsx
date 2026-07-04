@@ -82,6 +82,7 @@ function App() {
   const [busy, setBusyState] = React.useState({});
 
   React.useEffect(() => {
+    consumeAuthRedirect();
     initializeApp();
   }, []);
 
@@ -143,6 +144,35 @@ function App() {
     } finally {
       setAuthReady(true);
     }
+  }
+
+  function consumeAuthRedirect() {
+    if (!window.location.hash) return;
+
+    const params = new URLSearchParams(window.location.hash.slice(1));
+    const authError = params.get("auth_error");
+    const token = params.get("auth_token");
+    if (!authError && !token) return;
+
+    window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
+
+    if (authError) {
+      showNotice(authError, "error");
+      return;
+    }
+
+    const email = params.get("auth_email") || "";
+    const user = email ? { id: "google", email, plan: "free" } : null;
+    localStorage.setItem(AUTH_TOKEN_KEY, token);
+    if (user) {
+      localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+    } else {
+      localStorage.removeItem(AUTH_USER_KEY);
+    }
+    setAuthToken(token);
+    setAuthUser(user);
+    setAuthDialogOpen(false);
+    showNotice("Signed in with Google.");
   }
 
   function resetFileInput() {
@@ -280,6 +310,14 @@ function App() {
     } finally {
       setBusy("auth", false);
     }
+  }
+
+  function handleGoogleAuth() {
+    if (!authStatus?.google_auth_enabled) {
+      showNotice("Google sign-in is not configured yet.", "error");
+      return;
+    }
+    window.location.href = `${API_BASE}/auth/google/start`;
   }
 
   function clearAuthToken() {
@@ -691,9 +729,11 @@ function App() {
           error={accessError}
           isBusy={busy.auth}
           limits={authStatus}
+          googleAuthEnabled={Boolean(authStatus?.google_auth_enabled)}
           onFormModeChange={handleAuthFormModeChange}
           onEmailChange={setAuthEmail}
           onPasswordChange={setAccessPassword}
+          onGoogleAuth={handleGoogleAuth}
           onSubmit={handleAccessLogin}
         />
       ) : (
@@ -966,10 +1006,12 @@ function App() {
           error={accessError}
           isBusy={busy.auth}
           limits={authStatus}
+          googleAuthEnabled={Boolean(authStatus?.google_auth_enabled)}
           onClose={() => setAuthDialogOpen(false)}
           onFormModeChange={handleAuthFormModeChange}
           onEmailChange={setAuthEmail}
           onPasswordChange={setAccessPassword}
+          onGoogleAuth={handleGoogleAuth}
           onSubmit={handleAccessLogin}
         />
       )}
@@ -1300,10 +1342,12 @@ function AccessGate({
   isBusy = false,
   isLoading = false,
   limits = null,
+  googleAuthEnabled = false,
   onClose = null,
   onFormModeChange = () => {},
   onEmailChange = () => {},
   onPasswordChange = () => {},
+  onGoogleAuth = () => {},
   onSubmit = () => {},
 }) {
   const isAccountMode = authMode === "account";
@@ -1366,6 +1410,27 @@ function AccessGate({
                   >
                     Sign up
                   </button>
+                </div>
+
+                <button
+                  className="google-auth-button"
+                  type="button"
+                  onClick={onGoogleAuth}
+                  disabled={isBusy}
+                  title={
+                    googleAuthEnabled
+                      ? "Continue with Google"
+                      : "Google sign-in requires Google OAuth credentials"
+                  }
+                >
+                  <span className="google-mark" aria-hidden="true">
+                    G
+                  </span>
+                  <span>Continue with Google</span>
+                </button>
+
+                <div className="auth-divider" aria-hidden="true">
+                  <span>or use email</span>
                 </div>
 
                 <label className="field-label" htmlFor="access-email">

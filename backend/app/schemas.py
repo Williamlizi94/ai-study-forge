@@ -11,6 +11,7 @@ class StudySessionCreate(BaseModel):
 class AuthStatus(BaseModel):
     auth_required: bool
     auth_mode: str
+    google_auth_enabled: bool = False
     per_user_daily_ai_limit: int
     global_daily_ai_limit: int
 

@@ -18,6 +18,7 @@ from backend.app.config import settings
 LOCAL_DEV_VISITOR_ID = "local-dev"
 PASSWORD_HASH_ALGORITHM = "pbkdf2_sha256"
 PASSWORD_HASH_ITERATIONS = 260_000
+OAUTH_STATE_TTL_SECONDS = 10 * 60
 
 
 def auth_required() -> bool:
@@ -46,6 +47,40 @@ def create_access_token(visitor_id: str | None = None, email: str | None = None)
     )
     signature = _signature(body)
     return f"{body}.{signature}"
+
+
+def create_oauth_state() -> str:
+    now = int(time.time())
+    body = _base64url_encode(
+        json.dumps(
+            {
+                "nonce": secrets.token_urlsafe(18),
+                "issued_at": now,
+                "expires_at": now + OAUTH_STATE_TTL_SECONDS,
+            },
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("utf-8")
+    )
+    return f"{body}.{_signature(body)}"
+
+
+def verify_oauth_state(state: str) -> None:
+    try:
+        body, signature = state.split(".", 1)
+    except ValueError as exc:
+        raise HTTPException(status_code=401, detail="Invalid Google sign-in state.") from exc
+
+    if not secrets.compare_digest(signature, _signature(body)):
+        raise HTTPException(status_code=401, detail="Invalid Google sign-in state.")
+
+    try:
+        payload = json.loads(_base64url_decode(body).decode("utf-8"))
+    except (ValueError, UnicodeDecodeError) as exc:
+        raise HTTPException(status_code=401, detail="Invalid Google sign-in state.") from exc
+
+    if int(payload.get("expires_at", 0)) < int(time.time()):
+        raise HTTPException(status_code=401, detail="Google sign-in state expired.")
 
 
 def require_access(authorization: str | None = Header(default=None)) -> str:

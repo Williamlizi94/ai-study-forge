@@ -34,6 +34,27 @@ If the frontend and API are served from the same domain, `CORS_ORIGINS` can stay
 empty. If the frontend is served from a separate domain later, set
 `CORS_ORIGINS=https://yourdomain.com`.
 
+## Optional Google Login
+
+Google login is supported, but it is disabled until these environment variables
+are configured:
+
+```text
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
+GOOGLE_REDIRECT_URI=https://yourdomain.com/api/auth/google/callback
+```
+
+Create an OAuth Client in Google Cloud Console and add the same callback URL as
+an authorized redirect URI. For local testing, use:
+
+```text
+http://127.0.0.1:8000/api/auth/google/callback
+```
+
+Do not commit Google OAuth secrets to GitHub. Put production values in Elastic
+Beanstalk environment properties.
+
 ## Local Container Test
 
 ```powershell

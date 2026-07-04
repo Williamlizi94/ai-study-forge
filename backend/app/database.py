@@ -80,12 +80,16 @@ def init_db() -> None:
                 id TEXT PRIMARY KEY,
                 email TEXT UNIQUE NOT NULL,
                 password_hash TEXT NOT NULL,
+                auth_provider TEXT NOT NULL DEFAULT 'password',
+                google_sub TEXT,
                 plan TEXT NOT NULL DEFAULT 'free',
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             )
             """,
         )
+        _ensure_column(connection, "users", "auth_provider", "TEXT NOT NULL DEFAULT 'password'")
+        _ensure_column(connection, "users", "google_sub", "TEXT")
         _execute(
             connection,
             """
@@ -139,6 +143,14 @@ def init_db() -> None:
             """
             CREATE INDEX IF NOT EXISTS idx_users_email
             ON users (email)
+            """,
+        )
+        _execute(
+            connection,
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google_sub
+            ON users (google_sub)
+            WHERE google_sub IS NOT NULL
             """,
         )
         _execute(
@@ -208,10 +220,19 @@ def _row_to_user(row: Any) -> dict[str, str]:
         "id": row["id"],
         "email": row["email"],
         "password_hash": row["password_hash"],
+        "auth_provider": _optional_row_value(row, "auth_provider", "password"),
+        "google_sub": _optional_row_value(row, "google_sub", None),
         "plan": row["plan"],
         "created_at": row["created_at"],
         "updated_at": row["updated_at"],
     }
+
+
+def _optional_row_value(row: Any, key: str, fallback: Any) -> Any:
+    try:
+        return row[key]
+    except (KeyError, IndexError):
+        return fallback
 
 
 def create_user(email: str, password_hash: str) -> dict[str, str]:
@@ -241,12 +262,74 @@ def create_user(email: str, password_hash: str) -> dict[str, str]:
     return user
 
 
+def get_or_create_google_user(email: str, google_sub: str) -> dict[str, str]:
+    user = get_user_by_google_sub(google_sub)
+    if user is not None:
+        return user
+
+    existing = get_user_by_email(email)
+    now = utc_now()
+    if existing is not None:
+        with get_connection() as connection:
+            _execute(
+                connection,
+                """
+                UPDATE users
+                SET google_sub = ?, updated_at = ?
+                WHERE id = ?
+                """,
+                (google_sub, now, existing["id"]),
+            )
+        linked = get_user_by_email(email)
+        if linked is None:
+            raise RuntimeError("Failed to link Google account")
+        return linked
+
+    user_id = str(uuid.uuid4())
+    password_hash = f"google_oauth${google_sub}"
+    with get_connection() as connection:
+        _execute(
+            connection,
+            """
+            INSERT INTO users (
+                id,
+                email,
+                password_hash,
+                auth_provider,
+                google_sub,
+                plan,
+                created_at,
+                updated_at
+            )
+            VALUES (?, ?, ?, 'google', ?, 'free', ?, ?)
+            """,
+            (user_id, email, password_hash, google_sub, now, now),
+        )
+
+    user = get_user_by_google_sub(google_sub)
+    if user is None:
+        raise RuntimeError("Failed to create Google user")
+    return user
+
+
 def get_user_by_email(email: str) -> dict[str, str] | None:
     with get_connection() as connection:
         row = _execute(
             connection,
             "SELECT * FROM users WHERE email = ?",
             (email,),
+        ).fetchone()
+    if row is None:
+        return None
+    return _row_to_user(row)
+
+
+def get_user_by_google_sub(google_sub: str) -> dict[str, str] | None:
+    with get_connection() as connection:
+        row = _execute(
+            connection,
+            "SELECT * FROM users WHERE google_sub = ?",
+            (google_sub,),
         ).fetchone()
     if row is None:
         return None

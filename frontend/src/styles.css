@@ -272,6 +272,53 @@ button:disabled {
   box-shadow: 0 1px 2px rgba(16, 24, 40, 0.08);
 }
 
+.google-auth-button {
+  align-items: center;
+  background: #fff;
+  border: 1px solid var(--line);
+  color: var(--ink);
+  display: inline-flex;
+  gap: 10px;
+  justify-content: center;
+  min-height: 42px;
+  width: 100%;
+}
+
+.google-auth-button:hover {
+  background: var(--surface-2);
+  color: var(--teal);
+}
+
+.google-mark {
+  align-items: center;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 14px;
+  font-weight: 900;
+  height: 24px;
+  justify-content: center;
+  width: 24px;
+}
+
+.auth-divider {
+  align-items: center;
+  color: var(--muted);
+  display: grid;
+  font-size: 12px;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  line-height: 1;
+  margin: 2px 0;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  background: var(--line);
+  content: "";
+  height: 1px;
+}
+
 .access-loading {
   align-items: center;
   color: var(--muted);
@@ -458,12 +505,12 @@ textarea:focus {
   font-size: 13px;
 }
 
-button:not(.icon-button):not(.session-open):not(.session-delete):not(.clear-sessions-button):not(.sign-out-button):not(.tabs button):not(.secondary-button):not(.choice-button):not(.auth-mode-toggle button):not(.access-close-button) {
+button:not(.icon-button):not(.session-open):not(.session-delete):not(.clear-sessions-button):not(.sign-out-button):not(.tabs button):not(.secondary-button):not(.choice-button):not(.auth-mode-toggle button):not(.access-close-button):not(.google-auth-button) {
   background: var(--teal);
   color: #fff;
 }
 
-button:not(.icon-button):not(.session-open):not(.session-delete):not(.clear-sessions-button):not(.sign-out-button):not(.tabs button):not(.secondary-button):not(.choice-button):not(.auth-mode-toggle button):not(.access-close-button):hover {
+button:not(.icon-button):not(.session-open):not(.session-delete):not(.clear-sessions-button):not(.sign-out-button):not(.tabs button):not(.secondary-button):not(.choice-button):not(.auth-mode-toggle button):not(.access-close-button):not(.google-auth-button):hover {
   background: var(--teal-dark);
 }
 
