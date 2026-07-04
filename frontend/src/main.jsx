@@ -69,6 +69,7 @@ function App() {
   const [targetedPracticeReview, setTargetedPracticeReview] = React.useState(null);
   const [notice, setNotice] = React.useState(null);
   const [clearConfirmOpen, setClearConfirmOpen] = React.useState(false);
+  const [upgradeDialogOpen, setUpgradeDialogOpen] = React.useState(false);
   const [authReady, setAuthReady] = React.useState(false);
   const [authStatus, setAuthStatus] = React.useState(null);
   const [authToken, setAuthToken] = React.useState(() => localStorage.getItem(AUTH_TOKEN_KEY) || "");
@@ -96,6 +97,10 @@ function App() {
 
   function showNotice(message, tone = "info") {
     setNotice({ message, tone });
+  }
+
+  function openUpgradeDialog() {
+    setUpgradeDialogOpen(true);
   }
 
   function openAuthDialog(mode = "login") {
@@ -804,7 +809,7 @@ function App() {
               <h2>Beta Plan</h2>
               <p>Pro exam prep coming soon</p>
             </div>
-            <button type="button" onClick={() => showNotice("Upgrade plans are coming soon.")}>
+            <button type="button" onClick={openUpgradeDialog}>
               <Crown size={15} />
               <span>Upgrade</span>
             </button>
@@ -861,7 +866,7 @@ function App() {
                 quizReview={quizReview}
                 onOpenSession={openSession}
                 onSelectTool={setActiveTab}
-                onUpgrade={() => showNotice("Upgrade plans are coming soon.")}
+                onUpgrade={openUpgradeDialog}
               />
             )}
             {activeTab === "exam-prep" && (
@@ -946,6 +951,9 @@ function App() {
           onCancel={() => setClearConfirmOpen(false)}
           onConfirm={clearStudySessions}
         />
+      )}
+      {upgradeDialogOpen && (
+        <UpgradeDialog onClose={() => setUpgradeDialogOpen(false)} />
       )}
       {authDialogOpen && !isAccessLocked && (
         <AccessGate
@@ -1452,6 +1460,48 @@ function ConfirmDialog({ title, message, confirmLabel, cancelLabel, isBusy, onCa
           <button className="danger-button" type="button" onClick={onConfirm} disabled={isBusy}>
             {isBusy ? <Loader2 className="spin" size={16} /> : <Trash2 size={16} />}
             <span>{confirmLabel}</span>
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function UpgradeDialog({ onClose }) {
+  function handleBackdropClick(event) {
+    if (event.target === event.currentTarget) {
+      onClose();
+    }
+  }
+
+  return (
+    <div className="modal-backdrop" onMouseDown={handleBackdropClick}>
+      <section className="upgrade-dialog" role="dialog" aria-modal="true" aria-labelledby="upgrade-dialog-title">
+        <button className="dialog-close-button" type="button" onClick={onClose} aria-label="Close upgrade dialog">
+          <X size={18} />
+        </button>
+        <div className="upgrade-dialog-icon">
+          <Crown size={22} aria-hidden="true" />
+        </div>
+        <div className="upgrade-dialog-copy">
+          <span className="eyebrow">Beta access</span>
+          <h2 id="upgrade-dialog-title">Pro upgrade is coming soon</h2>
+          <p>
+            Payments are not enabled yet. You can keep testing the current exam prep tools with the beta limits.
+          </p>
+        </div>
+        <div className="upgrade-dialog-list">
+          <span>Planned Pro features</span>
+          <ul>
+            <li>Higher daily AI generation limits</li>
+            <li>Exportable study packs</li>
+            <li>Practice exam mode</li>
+          </ul>
+        </div>
+        <div className="confirm-dialog-actions">
+          <button type="button" onClick={onClose}>
+            <CheckCircle2 size={16} />
+            <span>Got it</span>
           </button>
         </div>
       </section>

@@ -602,6 +602,38 @@ button:not(.icon-button):not(.session-open):not(.session-delete):not(.clear-sess
   width: min(430px, 100%);
 }
 
+.upgrade-dialog {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 24px 80px rgba(17, 24, 39, 0.24);
+  display: grid;
+  gap: 16px;
+  max-width: 500px;
+  padding: 24px;
+  position: relative;
+  width: min(500px, 100%);
+}
+
+.dialog-close-button {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  height: 34px;
+  min-height: 34px;
+  padding: 0;
+  position: absolute;
+  right: 16px;
+  top: 16px;
+  width: 34px;
+}
+
+.dialog-close-button:hover {
+  background: #fff;
+  color: var(--teal);
+}
+
 .confirm-dialog-icon {
   align-items: center;
   background: rgba(173, 70, 58, 0.1);
@@ -613,13 +645,36 @@ button:not(.icon-button):not(.session-open):not(.session-delete):not(.clear-sess
   width: 42px;
 }
 
+.upgrade-dialog-icon {
+  align-items: center;
+  background: rgba(37, 111, 97, 0.1);
+  border-radius: 999px;
+  color: var(--teal);
+  display: flex;
+  height: 48px;
+  justify-content: center;
+  width: 48px;
+}
+
 .confirm-dialog-copy {
   display: grid;
   gap: 6px;
 }
 
+.upgrade-dialog-copy {
+  display: grid;
+  gap: 8px;
+  padding-right: 34px;
+}
+
 .confirm-dialog-copy h2 {
   font-size: 20px;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.upgrade-dialog-copy h2 {
+  font-size: 22px;
   line-height: 1.2;
   margin: 0;
 }
@@ -629,6 +684,36 @@ button:not(.icon-button):not(.session-open):not(.session-delete):not(.clear-sess
   font-size: 14px;
   line-height: 1.5;
   margin: 0;
+}
+
+.upgrade-dialog-copy p {
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.upgrade-dialog-list {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+}
+
+.upgrade-dialog-list span {
+  color: var(--teal);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.upgrade-dialog-list ul {
+  color: var(--muted);
+  line-height: 1.5;
+  margin: 0;
+  padding-left: 18px;
 }
 
 .confirm-dialog-actions {
