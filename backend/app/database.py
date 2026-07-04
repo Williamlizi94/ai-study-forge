@@ -141,6 +141,17 @@ def init_db() -> None:
         _execute(
             connection,
             """
+            CREATE TABLE IF NOT EXISTS feedback_messages (
+                id TEXT PRIMARY KEY,
+                owner_id TEXT NOT NULL,
+                message TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+        _execute(
+            connection,
+            """
             CREATE INDEX IF NOT EXISTS idx_users_email
             ON users (email)
             """,
@@ -172,6 +183,13 @@ def init_db() -> None:
             """
             CREATE INDEX IF NOT EXISTS idx_usage_events_visitor_type_created
             ON usage_events (visitor_id, event_type, created_at)
+            """
+        )
+        _execute(
+            connection,
+            """
+            CREATE INDEX IF NOT EXISTS idx_feedback_messages_owner_created
+            ON feedback_messages (owner_id, created_at)
             """
         )
 
@@ -454,6 +472,26 @@ def delete_all_sessions(owner_id: str | None = None) -> int:
         else:
             cursor = _execute(connection, "DELETE FROM study_sessions")
         return cursor.rowcount
+
+
+def create_feedback(owner_id: str, message: str) -> dict[str, str]:
+    feedback_id = str(uuid.uuid4())
+    now = utc_now()
+    with get_connection() as connection:
+        _execute(
+            connection,
+            """
+            INSERT INTO feedback_messages (id, owner_id, message, created_at)
+            VALUES (?, ?, ?, ?)
+            """,
+            (feedback_id, owner_id, message, now),
+        )
+    return {
+        "id": feedback_id,
+        "owner_id": owner_id,
+        "message": message,
+        "created_at": now,
+    }
 
 
 def update_summary(session_id: str, summary: str) -> StudySession:

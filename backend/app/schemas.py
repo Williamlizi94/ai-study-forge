@@ -37,6 +37,14 @@ class AuthLoginResponse(BaseModel):
     user: AuthUser | None = None
 
 
+class FeedbackRequest(BaseModel):
+    message: str = Field(..., min_length=10, max_length=2000)
+
+
+class FeedbackResponse(BaseModel):
+    saved: bool
+
+
 class ParsedDocumentResponse(BaseModel):
     title: str
     source_text: str

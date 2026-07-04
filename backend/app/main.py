@@ -30,6 +30,7 @@ from backend.app.auth import (
 from backend.app.config import BASE_DIR, settings
 from backend.app.database import (
     append_chat_messages,
+    create_feedback,
     create_session,
     create_user,
     delete_all_sessions,
@@ -67,6 +68,8 @@ from backend.app.schemas import (
     DiagnosticReviewRequest,
     DiagnosticReviewResponse,
     DiagnosticReviewResult,
+    FeedbackRequest,
+    FeedbackResponse,
     FlashcardsResponse,
     ParsedDocumentResponse,
     QuizResponse,
@@ -235,6 +238,15 @@ def api_auth_google_callback(
         return _clear_google_oauth_cookie(_auth_redirect_error(str(exc.detail)))
     except Exception:
         return _clear_google_oauth_cookie(_auth_redirect_error("Google sign-in failed. Try again."))
+
+
+@app.post("/api/feedback", response_model=FeedbackResponse)
+def api_create_feedback(
+    payload: FeedbackRequest,
+    visitor_id: str = Depends(require_access),
+) -> FeedbackResponse:
+    create_feedback(owner_id=visitor_id, message=payload.message.strip())
+    return FeedbackResponse(saved=True)
 
 
 @app.get("/api/study/sessions", response_model=list[StudySessionListItem])

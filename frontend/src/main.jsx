@@ -70,6 +70,9 @@ function App() {
   const [clearConfirmOpen, setClearConfirmOpen] = React.useState(false);
   const [upgradeDialogOpen, setUpgradeDialogOpen] = React.useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = React.useState(false);
+  const [accountSettingsOpen, setAccountSettingsOpen] = React.useState(false);
+  const [helpDialogOpen, setHelpDialogOpen] = React.useState(false);
+  const [feedbackText, setFeedbackText] = React.useState("");
   const [authReady, setAuthReady] = React.useState(false);
   const [authStatus, setAuthStatus] = React.useState(null);
   const [authToken, setAuthToken] = React.useState(() => localStorage.getItem(AUTH_TOKEN_KEY) || "");
@@ -347,18 +350,53 @@ function App() {
     setAuthToken("");
     setAuthUser(null);
     setAccountMenuOpen(false);
+    setAccountSettingsOpen(false);
+    setHelpDialogOpen(false);
+    setUpgradeDialogOpen(false);
     setSessions([]);
     resetWorkspaceDraft();
   }
 
   function openAccountSettings() {
     setAccountMenuOpen(false);
-    showNotice("Account settings are coming soon.");
+    setAccountSettingsOpen(true);
   }
 
   function openHelpCenter() {
     setAccountMenuOpen(false);
-    showNotice("Help and feedback are coming soon.");
+    setHelpDialogOpen(true);
+  }
+
+  function openClearSessionsFromAccount() {
+    setAccountSettingsOpen(false);
+    if (!sessions.length) {
+      showNotice("No saved sessions to clear.");
+      return;
+    }
+    setClearConfirmOpen(true);
+  }
+
+  async function submitFeedback(event) {
+    event.preventDefault();
+    const message = feedbackText.trim();
+    if (message.length < 10) {
+      showNotice("Add a little more detail before sending feedback.", "error");
+      return;
+    }
+    setBusy("feedback", true);
+    try {
+      await apiRequest("/feedback", {
+        method: "POST",
+        body: JSON.stringify({ message }),
+      });
+      setFeedbackText("");
+      setHelpDialogOpen(false);
+      showNotice("Feedback sent. Thanks for helping improve the product.");
+    } catch (error) {
+      showNotice(error.message, "error");
+    } finally {
+      setBusy("feedback", false);
+    }
   }
 
   async function ensureActiveSession() {
@@ -1035,6 +1073,29 @@ function App() {
       {upgradeDialogOpen && (
         <UpgradeDialog onClose={() => setUpgradeDialogOpen(false)} />
       )}
+      {accountSettingsOpen && (
+        <AccountSettingsDialog
+          user={authUser}
+          sessionsCount={sessions.length}
+          limits={authStatus}
+          onClearSessions={openClearSessionsFromAccount}
+          onUpgrade={() => {
+            setAccountSettingsOpen(false);
+            openUpgradeDialog();
+          }}
+          onSignOut={clearAuthToken}
+          onClose={() => setAccountSettingsOpen(false)}
+        />
+      )}
+      {helpDialogOpen && (
+        <HelpFeedbackDialog
+          feedbackText={feedbackText}
+          isBusy={busy.feedback}
+          onFeedbackChange={setFeedbackText}
+          onSubmitFeedback={submitFeedback}
+          onClose={() => setHelpDialogOpen(false)}
+        />
+      )}
       {authDialogOpen && !isAccessLocked && (
         <AccessGate
           asDialog
@@ -1633,6 +1694,161 @@ function AccessGate({
     <main className="access-shell" aria-label="Access gate">
       {panel}
     </main>
+  );
+}
+
+function AccountSettingsDialog({
+  user,
+  sessionsCount,
+  limits,
+  onClearSessions,
+  onUpgrade,
+  onSignOut,
+  onClose,
+}) {
+  function handleBackdropClick(event) {
+    if (event.target === event.currentTarget) {
+      onClose();
+    }
+  }
+
+  const email = user?.email || "Signed in";
+  const plan = user?.plan ? `${user.plan.slice(0, 1).toUpperCase()}${user.plan.slice(1)}` : "Free";
+
+  return (
+    <div className="modal-backdrop" onMouseDown={handleBackdropClick}>
+      <section className="account-dialog" role="dialog" aria-modal="true" aria-labelledby="account-settings-title">
+        <button className="dialog-close-button" type="button" onClick={onClose} aria-label="Close account settings">
+          <X size={18} />
+        </button>
+        <div className="account-dialog-icon">
+          <LibraryBig size={22} aria-hidden="true" />
+        </div>
+        <div className="account-dialog-copy">
+          <span className="eyebrow">Account</span>
+          <h2 id="account-settings-title">Account settings</h2>
+          <p>Manage your profile, usage, plan, and saved study data.</p>
+        </div>
+
+        <div className="account-detail-grid">
+          <div className="account-detail-card">
+            <span>Email</span>
+            <strong>{email}</strong>
+          </div>
+          <div className="account-detail-card">
+            <span>Plan</span>
+            <strong>{plan}</strong>
+          </div>
+          <div className="account-detail-card">
+            <span>Saved sessions</span>
+            <strong>{sessionsCount}</strong>
+          </div>
+          <div className="account-detail-card">
+            <span>Daily AI limit</span>
+            <strong>{limits?.per_user_daily_ai_limit ?? 0}</strong>
+          </div>
+        </div>
+
+        <div className="account-settings-section">
+          <h3>Plan and billing</h3>
+          <p>Payments are not enabled yet. Use this entry point later for Stripe billing, invoices, and plan changes.</p>
+          <button type="button" onClick={onUpgrade}>
+            <Crown size={16} />
+            <span>View upgrade options</span>
+          </button>
+        </div>
+
+        <div className="account-settings-section">
+          <h3>Data management</h3>
+          <p>Clear saved sessions from this account when you want to reset the workspace.</p>
+          <div className="account-dialog-actions">
+            <button className="secondary-button" type="button" onClick={onClearSessions}>
+              <Trash2 size={16} />
+              <span>Clear saved sessions</span>
+            </button>
+            <button className="danger-button" type="button" onClick={onSignOut}>
+              <XCircle size={16} />
+              <span>Sign out</span>
+            </button>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function HelpFeedbackDialog({
+  feedbackText,
+  isBusy,
+  onFeedbackChange,
+  onSubmitFeedback,
+  onClose,
+}) {
+  function handleBackdropClick(event) {
+    if (event.target === event.currentTarget && !isBusy) {
+      onClose();
+    }
+  }
+
+  return (
+    <div className="modal-backdrop" onMouseDown={handleBackdropClick}>
+      <section className="account-dialog" role="dialog" aria-modal="true" aria-labelledby="help-feedback-title">
+        <button
+          className="dialog-close-button"
+          type="button"
+          onClick={onClose}
+          disabled={isBusy}
+          aria-label="Close help and feedback"
+        >
+          <X size={18} />
+        </button>
+        <div className="account-dialog-icon">
+          <CircleHelp size={22} aria-hidden="true" />
+        </div>
+        <div className="account-dialog-copy">
+          <span className="eyebrow">Support</span>
+          <h2 id="help-feedback-title">Help & feedback</h2>
+          <p>Quick answers for beta users, plus a feedback form saved for product review.</p>
+        </div>
+
+        <div className="help-topic-list">
+          <div>
+            <strong>Where are my study sessions saved?</strong>
+            <p>They are saved to your account after you generate a study tool from uploaded or pasted material.</p>
+          </div>
+          <div>
+            <strong>Why is Google login not active yet?</strong>
+            <p>Google OAuth needs a configured Google Client ID and Secret before launch.</p>
+          </div>
+          <div>
+            <strong>What should I test before launch?</strong>
+            <p>Test upload, AI Notes, Cheat Sheet, Practice Quiz, Mistakes, Flashcards, and Ask AI Tutor.</p>
+          </div>
+        </div>
+
+        <form className="feedback-form" onSubmit={onSubmitFeedback}>
+          <label className="field-label" htmlFor="feedback-message">
+            Feedback
+          </label>
+          <textarea
+            id="feedback-message"
+            value={feedbackText}
+            onChange={(event) => onFeedbackChange(event.target.value)}
+            placeholder="Tell us what confused you, what broke, or what would make exam prep faster."
+            rows={5}
+          />
+          <div className="account-dialog-actions">
+            <button className="secondary-button" type="button" onClick={onClose} disabled={isBusy}>
+              Cancel
+            </button>
+            <button type="submit" disabled={isBusy || feedbackText.trim().length < 10}>
+              {isBusy ? <Loader2 className="spin" size={16} /> : <Send size={16} />}
+              <span>Send feedback</span>
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
   );
 }
 
