@@ -112,27 +112,6 @@ button:disabled {
   white-space: nowrap;
 }
 
-.api-pill {
-  align-items: center;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  color: var(--muted);
-  display: inline-flex;
-  flex: 0 0 auto;
-  gap: 8px;
-  min-height: 38px;
-  padding: 0 14px;
-}
-
-.api-pill.ok {
-  color: var(--teal);
-}
-
-.api-pill.error {
-  color: var(--red);
-}
-
 .topbar-actions {
   align-items: center;
   display: flex;
@@ -150,6 +129,147 @@ button:disabled {
 .sign-out-button:hover {
   background: var(--surface-2);
   color: var(--teal);
+}
+
+.account-menu {
+  position: relative;
+}
+
+.account-avatar-button {
+  align-items: center;
+  background: var(--teal);
+  border: 1px solid var(--teal);
+  border-radius: 999px;
+  color: #fff;
+  display: inline-flex;
+  font-size: 15px;
+  font-weight: 900;
+  height: 42px;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0;
+  width: 42px;
+}
+
+.account-avatar-button:hover,
+.account-avatar-button[aria-expanded="true"] {
+  background: var(--teal-dark);
+  border-color: var(--teal-dark);
+}
+
+.account-dropdown {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 18px 52px rgba(29, 35, 32, 0.18);
+  display: grid;
+  gap: 10px;
+  min-width: 292px;
+  padding: 12px;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 10px);
+  z-index: 40;
+}
+
+.account-profile-row {
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 44px minmax(0, 1fr);
+  padding: 4px 4px 12px;
+}
+
+.account-avatar-large {
+  align-items: center;
+  background: rgba(37, 111, 97, 0.1);
+  border-radius: 999px;
+  color: var(--teal);
+  display: inline-flex;
+  font-weight: 900;
+  height: 44px;
+  justify-content: center;
+  width: 44px;
+}
+
+.account-profile-row strong,
+.account-profile-row span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-profile-row strong {
+  font-size: 14px;
+}
+
+.account-profile-row span {
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 3px;
+}
+
+.account-metrics {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.account-metrics div {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 9px 10px;
+}
+
+.account-metrics span,
+.account-menu-item small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.account-metrics strong {
+  display: block;
+  font-size: 16px;
+  margin-top: 3px;
+}
+
+.account-menu-item {
+  align-items: center;
+  background: transparent;
+  border-radius: 8px;
+  color: var(--ink);
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 20px minmax(0, 1fr);
+  justify-content: start;
+  min-height: 52px;
+  padding: 8px 10px;
+  text-align: left;
+  width: 100%;
+}
+
+.account-menu-item:hover {
+  background: var(--surface-2);
+  color: var(--teal);
+}
+
+.account-menu-item strong,
+.account-menu-item small {
+  display: block;
+  line-height: 1.25;
+}
+
+.account-menu-item.danger {
+  border-top: 1px solid var(--line);
+  color: var(--red);
+  margin-top: 2px;
+}
+
+.account-menu-item.danger:hover {
+  background: #f8e9e7;
 }
 
 .shell {
@@ -505,12 +625,12 @@ textarea:focus {
   font-size: 13px;
 }
 
-button:not(.icon-button):not(.session-open):not(.session-delete):not(.clear-sessions-button):not(.sign-out-button):not(.tabs button):not(.secondary-button):not(.choice-button):not(.auth-mode-toggle button):not(.access-close-button):not(.google-auth-button) {
+button:not(.icon-button):not(.session-open):not(.session-delete):not(.clear-sessions-button):not(.sign-out-button):not(.tabs button):not(.secondary-button):not(.choice-button):not(.auth-mode-toggle button):not(.access-close-button):not(.google-auth-button):not(.account-avatar-button):not(.account-menu-item) {
   background: var(--teal);
   color: #fff;
 }
 
-button:not(.icon-button):not(.session-open):not(.session-delete):not(.clear-sessions-button):not(.sign-out-button):not(.tabs button):not(.secondary-button):not(.choice-button):not(.auth-mode-toggle button):not(.access-close-button):not(.google-auth-button):hover {
+button:not(.icon-button):not(.session-open):not(.session-delete):not(.clear-sessions-button):not(.sign-out-button):not(.tabs button):not(.secondary-button):not(.choice-button):not(.auth-mode-toggle button):not(.access-close-button):not(.google-auth-button):not(.account-avatar-button):not(.account-menu-item):hover {
   background: var(--teal-dark);
 }
 
@@ -1689,5 +1809,14 @@ button:not(.icon-button):not(.session-open):not(.session-delete):not(.clear-sess
   .brand-lockup h1,
   .workspace-header h2 {
     font-size: 21px;
+  }
+
+  .topbar-actions {
+    align-self: flex-end;
+  }
+
+  .account-dropdown {
+    max-width: calc(100vw - 28px);
+    min-width: min(292px, calc(100vw - 28px));
   }
 }

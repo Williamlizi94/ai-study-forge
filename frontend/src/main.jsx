@@ -26,8 +26,6 @@ import {
   Target,
   Trash2,
   Upload,
-  Wifi,
-  WifiOff,
   X,
   XCircle,
 } from "lucide-react";
@@ -51,6 +49,7 @@ const tabs = [
 
 function App() {
   const fileInputRef = React.useRef(null);
+  const accountMenuRef = React.useRef(null);
   const [apiOnline, setApiOnline] = React.useState(false);
   const [currentSession, setCurrentSession] = React.useState(null);
   const [sessions, setSessions] = React.useState([]);
@@ -70,6 +69,7 @@ function App() {
   const [notice, setNotice] = React.useState(null);
   const [clearConfirmOpen, setClearConfirmOpen] = React.useState(false);
   const [upgradeDialogOpen, setUpgradeDialogOpen] = React.useState(false);
+  const [accountMenuOpen, setAccountMenuOpen] = React.useState(false);
   const [authReady, setAuthReady] = React.useState(false);
   const [authStatus, setAuthStatus] = React.useState(null);
   const [authToken, setAuthToken] = React.useState(() => localStorage.getItem(AUTH_TOKEN_KEY) || "");
@@ -91,6 +91,27 @@ function App() {
     const timeout = window.setTimeout(() => setNotice(null), 4200);
     return () => window.clearTimeout(timeout);
   }, [notice]);
+
+  React.useEffect(() => {
+    function handleDocumentClick(event) {
+      if (!accountMenuRef.current?.contains(event.target)) {
+        setAccountMenuOpen(false);
+      }
+    }
+
+    function handleEscape(event) {
+      if (event.key === "Escape") {
+        setAccountMenuOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleDocumentClick);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handleDocumentClick);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, []);
 
   function setBusy(key, value) {
     setBusyState((current) => ({ ...current, [key]: value }));
@@ -325,8 +346,19 @@ function App() {
     localStorage.removeItem(AUTH_USER_KEY);
     setAuthToken("");
     setAuthUser(null);
+    setAccountMenuOpen(false);
     setSessions([]);
     resetWorkspaceDraft();
+  }
+
+  function openAccountSettings() {
+    setAccountMenuOpen(false);
+    showNotice("Account settings are coming soon.");
+  }
+
+  function openHelpCenter() {
+    setAccountMenuOpen(false);
+    showNotice("Help and feedback are coming soon.");
   }
 
   async function ensureActiveSession() {
@@ -695,10 +727,6 @@ function App() {
           </div>
         </div>
         <div className="topbar-actions">
-          <div className={`api-pill ${apiOnline ? "ok" : "error"}`}>
-            {apiOnline ? <Wifi size={16} /> : <WifiOff size={16} />}
-            <span>{apiOnline ? "API Online" : "API Offline"}</span>
-          </div>
           {isAccountMode && !authToken && (
             <>
               <button className="sign-out-button" type="button" onClick={() => openAuthDialog("login")}>
@@ -710,9 +738,21 @@ function App() {
             </>
           )}
           {authStatus?.auth_required && authToken && (
-            <button className="sign-out-button" type="button" onClick={clearAuthToken}>
-              Sign out
-            </button>
+            <AccountMenu
+              ref={accountMenuRef}
+              user={authUser}
+              isOpen={accountMenuOpen}
+              sessionsCount={sessions.length}
+              limits={authStatus}
+              onToggle={() => setAccountMenuOpen((current) => !current)}
+              onUpgrade={() => {
+                setAccountMenuOpen(false);
+                openUpgradeDialog();
+              }}
+              onSettings={openAccountSettings}
+              onHelp={openHelpCenter}
+              onSignOut={clearAuthToken}
+            />
           )}
         </div>
       </header>
@@ -1017,6 +1057,101 @@ function App() {
       )}
     </div>
   );
+}
+
+const AccountMenu = React.forwardRef(function AccountMenu(
+  {
+    user,
+    isOpen,
+    sessionsCount,
+    limits,
+    onToggle,
+    onUpgrade,
+    onSettings,
+    onHelp,
+    onSignOut,
+  },
+  ref,
+) {
+  const email = user?.email || "Signed in";
+  const plan = user?.plan ? `${user.plan.slice(0, 1).toUpperCase()}${user.plan.slice(1)}` : "Free";
+  const initial = getAccountInitial(email);
+
+  return (
+    <div className="account-menu" ref={ref}>
+      <button
+        className="account-avatar-button"
+        type="button"
+        aria-label="Open account menu"
+        aria-haspopup="menu"
+        aria-expanded={isOpen}
+        onClick={onToggle}
+      >
+        {initial}
+      </button>
+
+      {isOpen && (
+        <section className="account-dropdown" role="menu" aria-label="Account menu">
+          <div className="account-profile-row">
+            <div className="account-avatar-large" aria-hidden="true">
+              {initial}
+            </div>
+            <div>
+              <strong>{email}</strong>
+              <span>{plan} plan</span>
+            </div>
+          </div>
+
+          <div className="account-metrics">
+            <div>
+              <span>Saved sessions</span>
+              <strong>{sessionsCount}</strong>
+            </div>
+            <div>
+              <span>Daily AI limit</span>
+              <strong>{limits?.per_user_daily_ai_limit ?? 0}</strong>
+            </div>
+          </div>
+
+          <button className="account-menu-item" type="button" role="menuitem" onClick={onSettings}>
+            <LibraryBig size={16} aria-hidden="true" />
+            <span>
+              <strong>Account settings</strong>
+              <small>Profile and preferences</small>
+            </span>
+          </button>
+
+          <button className="account-menu-item" type="button" role="menuitem" onClick={onUpgrade}>
+            <Crown size={16} aria-hidden="true" />
+            <span>
+              <strong>Upgrade plan</strong>
+              <small>Higher limits and export tools</small>
+            </span>
+          </button>
+
+          <button className="account-menu-item" type="button" role="menuitem" onClick={onHelp}>
+            <CircleHelp size={16} aria-hidden="true" />
+            <span>
+              <strong>Help & feedback</strong>
+              <small>Support and product requests</small>
+            </span>
+          </button>
+
+          <button className="account-menu-item danger" type="button" role="menuitem" onClick={onSignOut}>
+            <XCircle size={16} aria-hidden="true" />
+            <span>
+              <strong>Sign out</strong>
+              <small>End this browser session</small>
+            </span>
+          </button>
+        </section>
+      )}
+    </div>
+  );
+});
+
+function getAccountInitial(email) {
+  return (email.trim()[0] || "A").toUpperCase();
 }
 
 function DashboardPanel({
