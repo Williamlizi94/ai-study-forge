@@ -52,6 +52,6 @@ if (Get-Command npm -ErrorAction SilentlyContinue) {
     Pop-Location
 }
 
-Write-Host "Starting AI Study Assistant at http://127.0.0.1:8000"
+Write-Host "Starting AI Study Forge at http://127.0.0.1:8000"
 Set-Location $Root
 & $Python -m uvicorn backend.app.main:app --reload --host 127.0.0.1 --port 8000

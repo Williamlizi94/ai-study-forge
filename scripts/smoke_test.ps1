@@ -36,7 +36,7 @@ function Invoke-StudyAssistantJson {
     Invoke-RestMethod @Args
 }
 
-Write-Host "Checking AI Study Assistant at $BaseUrl"
+Write-Host "Checking AI Study Forge at $BaseUrl"
 
 $Health = Invoke-StudyAssistantJson -Method "GET" -Path "/api/health"
 if ($Health.status -ne "ok") {
@@ -50,7 +50,7 @@ Write-Host "OK: /api/auth/status auth_mode=$($AuthStatus.auth_mode)"
 if ($RunStudyApi) {
     $NeedsAuth = [bool] $AuthStatus.auth_required
     $SourceText = @"
-Smoke test material for AI Study Assistant.
+Smoke test material for AI Study Forge.
 
 This text is intentionally long enough to create a study session without calling
 the OpenAI API. It verifies that the deployed backend can accept JSON, persist a

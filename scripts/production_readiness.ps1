@@ -28,7 +28,7 @@ if ($sensitiveTracked) {
 Write-Host "No tracked env/key files found." -ForegroundColor Green
 
 Write-Step "Scanning tracked files for common secret patterns"
-$secretScan = git grep -n -E '(sk-[A-Za-z0-9_-]{20,}|AKIA[0-9A-Z]{16}|BEGIN (RSA|OPENSSH|PRIVATE) KEY|aws_secret_access_key|OPENAI_API_KEY=|DATABASE_URL=postgresql://|AUTH_TOKEN_SECRET=)' -- . ':!*.md' ':!*.example' 2>$null
+$secretScan = git grep -n -E '(sk-[A-Za-z0-9_-]{20,}|AKIA[0-9A-Z]{16}|BEGIN (RSA|OPENSSH|PRIVATE) KEY|aws_secret_access_key|OPENAI_API_KEY=|DATABASE_URL=postgresql://|AUTH_TOKEN_SECRET=)' -- . ':!*.md' ':!*.example' ':!scripts/production_readiness.ps1' 2>$null
 if ($LASTEXITCODE -eq 0 -and $secretScan) {
   $secretScan | ForEach-Object { Write-Host $_ -ForegroundColor Red }
   Fail "Potential secret values found in tracked source files."
