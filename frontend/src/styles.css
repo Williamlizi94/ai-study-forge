@@ -625,12 +625,12 @@ textarea:focus {
   font-size: 13px;
 }
 
-button:not(.icon-button):not(.session-open):not(.session-delete):not(.clear-sessions-button):not(.sign-out-button):not(.tabs button):not(.secondary-button):not(.choice-button):not(.auth-mode-toggle button):not(.access-close-button):not(.google-auth-button):not(.account-avatar-button):not(.account-menu-item) {
+button:not(.icon-button):not(.session-open):not(.session-delete):not(.clear-sessions-button):not(.sign-out-button):not(.tabs button):not(.secondary-button):not(.choice-button):not(.auth-mode-toggle button):not(.legal-toggle button):not(.access-close-button):not(.google-auth-button):not(.account-avatar-button):not(.account-menu-item) {
   background: var(--teal);
   color: #fff;
 }
 
-button:not(.icon-button):not(.session-open):not(.session-delete):not(.clear-sessions-button):not(.sign-out-button):not(.tabs button):not(.secondary-button):not(.choice-button):not(.auth-mode-toggle button):not(.access-close-button):not(.google-auth-button):not(.account-avatar-button):not(.account-menu-item):hover {
+button:not(.icon-button):not(.session-open):not(.session-delete):not(.clear-sessions-button):not(.sign-out-button):not(.tabs button):not(.secondary-button):not(.choice-button):not(.auth-mode-toggle button):not(.legal-toggle button):not(.access-close-button):not(.google-auth-button):not(.account-avatar-button):not(.account-menu-item):hover {
   background: var(--teal-dark);
 }
 
@@ -797,6 +797,21 @@ button:not(.icon-button):not(.session-open):not(.session-delete):not(.clear-sess
   width: min(620px, 100%);
 }
 
+.legal-dialog {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 24px 80px rgba(17, 24, 39, 0.24);
+  display: grid;
+  gap: 16px;
+  max-height: calc(100vh - 48px);
+  max-width: 760px;
+  overflow-y: auto;
+  padding: 24px;
+  position: relative;
+  width: min(760px, 100%);
+}
+
 .dialog-close-button {
   background: var(--surface-2);
   border: 1px solid var(--line);
@@ -953,6 +968,10 @@ button:not(.icon-button):not(.session-open):not(.session-delete):not(.clear-sess
   margin-top: 2px;
 }
 
+.account-dialog-actions.left {
+  justify-content: flex-start;
+}
+
 .help-topic-list,
 .feedback-form {
   display: grid;
@@ -986,6 +1005,62 @@ button:not(.icon-button):not(.session-open):not(.session-delete):not(.clear-sess
   line-height: 1.5;
   margin: 0;
   padding-left: 18px;
+}
+
+.legal-toggle {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 4px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 4px;
+}
+
+.legal-toggle button {
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: var(--muted);
+  font-weight: 800;
+  min-height: 38px;
+}
+
+.legal-toggle button.active {
+  background: #fff;
+  color: var(--teal);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.08);
+}
+
+.legal-content {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 16px;
+  padding-top: 16px;
+}
+
+.legal-updated {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 0;
+}
+
+.legal-content section {
+  display: grid;
+  gap: 6px;
+}
+
+.legal-content h3 {
+  font-size: 15px;
+  line-height: 1.25;
+  margin: 0;
+}
+
+.legal-content p {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0;
 }
 
 .confirm-dialog-actions {

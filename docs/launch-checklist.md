@@ -1,6 +1,6 @@
 # Launch Checklist
 
-Use this checklist before sharing AI Study Assistant with real users. The goal is
+Use this checklist before sharing AI Study Forge with real users. The goal is
 to avoid three common launch failures: leaked secrets, broken account flows, and
 uncontrolled AI/cloud cost.
 
@@ -21,7 +21,7 @@ uncontrolled AI/cloud cost.
 - Check the deployed health endpoint:
 
 ```powershell
-.\scripts\production_readiness.ps1 -SkipBuild -BaseUrl "https://yourdomain.com"
+.\scripts\production_readiness.ps1 -SkipBuild -BaseUrl "https://aistudyforge.com"
 ```
 
 ## 2. Production Environment
@@ -49,7 +49,7 @@ For Google login, add these after Google OAuth is configured:
 ```text
 GOOGLE_CLIENT_ID=<Google OAuth client id>
 GOOGLE_CLIENT_SECRET=<Google OAuth client secret>
-GOOGLE_REDIRECT_URI=https://yourdomain.com/api/auth/google/callback
+GOOGLE_REDIRECT_URI=https://aistudyforge.com/api/auth/google/callback
 ```
 
 ## 3. Domain and HTTPS

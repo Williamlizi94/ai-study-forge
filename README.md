@@ -1,4 +1,4 @@
-# AI Study Assistant
+# AI Study Forge
 
 A local-first MVP for turning study material into exam notes, cheat sheets, flashcards, quizzes, and note-grounded tutoring.
 
@@ -156,13 +156,13 @@ study session without calling OpenAI:
 For a deployed app:
 
 ```powershell
-.\scripts\smoke_test.ps1 -BaseUrl "https://yourdomain.com"
+.\scripts\smoke_test.ps1 -BaseUrl "https://aistudyforge.com"
 ```
 
 If account or beta auth is enabled, log in first and pass the returned token:
 
 ```powershell
-.\scripts\smoke_test.ps1 -BaseUrl "https://yourdomain.com" -AuthToken "token" -RunStudyApi
+.\scripts\smoke_test.ps1 -BaseUrl "https://aistudyforge.com" -AuthToken "token" -RunStudyApi
 ```
 
 ## Production Readiness
@@ -176,7 +176,7 @@ Before a public beta or paid launch, run the readiness check:
 For a deployed app:
 
 ```powershell
-.\scripts\production_readiness.ps1 -SkipBuild -BaseUrl "https://yourdomain.com"
+.\scripts\production_readiness.ps1 -SkipBuild -BaseUrl "https://aistudyforge.com"
 ```
 
 Then complete the launch checklist in:

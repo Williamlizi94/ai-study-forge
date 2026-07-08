@@ -33,6 +33,9 @@ import "katex/dist/katex.min.css";
 import "./styles.css";
 
 const API_BASE = "/api";
+const APP_NAME = "AI Study Forge";
+const APP_DOMAIN = "aistudyforge.com";
+const LEGAL_LAST_UPDATED = "July 8, 2026";
 const AUTH_TOKEN_KEY = "aiStudyAssistantAuthToken";
 const AUTH_USER_KEY = "aiStudyAssistantAuthUser";
 
@@ -72,6 +75,7 @@ function App() {
   const [accountMenuOpen, setAccountMenuOpen] = React.useState(false);
   const [accountSettingsOpen, setAccountSettingsOpen] = React.useState(false);
   const [helpDialogOpen, setHelpDialogOpen] = React.useState(false);
+  const [legalDialogKind, setLegalDialogKind] = React.useState(null);
   const [feedbackText, setFeedbackText] = React.useState("");
   const [authReady, setAuthReady] = React.useState(false);
   const [authStatus, setAuthStatus] = React.useState(null);
@@ -353,6 +357,7 @@ function App() {
     setAccountSettingsOpen(false);
     setHelpDialogOpen(false);
     setUpgradeDialogOpen(false);
+    setLegalDialogKind(null);
     setSessions([]);
     resetWorkspaceDraft();
   }
@@ -365,6 +370,12 @@ function App() {
   function openHelpCenter() {
     setAccountMenuOpen(false);
     setHelpDialogOpen(true);
+  }
+
+  function openLegalDialog(kind) {
+    setAccountMenuOpen(false);
+    setAccountSettingsOpen(false);
+    setLegalDialogKind(kind);
   }
 
   function openClearSessionsFromAccount() {
@@ -754,7 +765,7 @@ function App() {
             <BookOpen size={22} aria-hidden="true" />
           </div>
           <div>
-            <h1>AI Study Assistant</h1>
+            <h1>{APP_NAME}</h1>
             <p>
               {isAccessLocked
                 ? authStatus?.auth_mode === "account"
@@ -789,6 +800,7 @@ function App() {
               }}
               onSettings={openAccountSettings}
               onHelp={openHelpCenter}
+              onLegal={openLegalDialog}
               onSignOut={clearAuthToken}
             />
           )}
@@ -1083,6 +1095,7 @@ function App() {
             setAccountSettingsOpen(false);
             openUpgradeDialog();
           }}
+          onLegal={openLegalDialog}
           onSignOut={clearAuthToken}
           onClose={() => setAccountSettingsOpen(false)}
         />
@@ -1094,6 +1107,13 @@ function App() {
           onFeedbackChange={setFeedbackText}
           onSubmitFeedback={submitFeedback}
           onClose={() => setHelpDialogOpen(false)}
+        />
+      )}
+      {legalDialogKind && (
+        <LegalDialog
+          kind={legalDialogKind}
+          onSwitch={setLegalDialogKind}
+          onClose={() => setLegalDialogKind(null)}
         />
       )}
       {authDialogOpen && !isAccessLocked && (
@@ -1130,6 +1150,7 @@ const AccountMenu = React.forwardRef(function AccountMenu(
     onUpgrade,
     onSettings,
     onHelp,
+    onLegal,
     onSignOut,
   },
   ref,
@@ -1195,6 +1216,14 @@ const AccountMenu = React.forwardRef(function AccountMenu(
             <span>
               <strong>Help & feedback</strong>
               <small>Support and product requests</small>
+            </span>
+          </button>
+
+          <button className="account-menu-item" type="button" role="menuitem" onClick={() => onLegal("privacy")}>
+            <FileText size={16} aria-hidden="true" />
+            <span>
+              <strong>Privacy & terms</strong>
+              <small>Policies for beta users</small>
             </span>
           </button>
 
@@ -1703,6 +1732,7 @@ function AccountSettingsDialog({
   limits,
   onClearSessions,
   onUpgrade,
+  onLegal,
   onSignOut,
   onClose,
 }) {
@@ -1756,6 +1786,21 @@ function AccountSettingsDialog({
             <Crown size={16} />
             <span>View upgrade options</span>
           </button>
+        </div>
+
+        <div className="account-settings-section">
+          <h3>Legal and privacy</h3>
+          <p>Review the current beta policies for data handling, AI output limitations, and acceptable use.</p>
+          <div className="account-dialog-actions left">
+            <button className="secondary-button" type="button" onClick={() => onLegal("privacy")}>
+              <FileText size={16} />
+              <span>Privacy Policy</span>
+            </button>
+            <button className="secondary-button" type="button" onClick={() => onLegal("terms")}>
+              <ClipboardCheck size={16} />
+              <span>Terms</span>
+            </button>
+          </div>
         </div>
 
         <div className="account-settings-section">
@@ -1922,6 +1967,139 @@ function UpgradeDialog({ onClose }) {
         </div>
       </section>
     </div>
+  );
+}
+
+function LegalDialog({ kind, onSwitch, onClose }) {
+  const isPrivacy = kind === "privacy";
+  const title = isPrivacy ? "Privacy Policy" : "Terms of Service";
+  const description = isPrivacy
+    ? "How AI Study Forge handles study material, accounts, and product usage data during beta."
+    : "The basic rules for using AI Study Forge as an exam-prep study tool.";
+
+  function handleBackdropClick(event) {
+    if (event.target === event.currentTarget) {
+      onClose();
+    }
+  }
+
+  return (
+    <div className="modal-backdrop" onMouseDown={handleBackdropClick}>
+      <section className="legal-dialog" role="dialog" aria-modal="true" aria-labelledby="legal-dialog-title">
+        <button className="dialog-close-button" type="button" onClick={onClose} aria-label={`Close ${title}`}>
+          <X size={18} />
+        </button>
+        <div className="account-dialog-icon">
+          {isPrivacy ? <FileText size={22} aria-hidden="true" /> : <ClipboardCheck size={22} aria-hidden="true" />}
+        </div>
+        <div className="account-dialog-copy">
+          <span className="eyebrow">{APP_DOMAIN}</span>
+          <h2 id="legal-dialog-title">{title}</h2>
+          <p>{description}</p>
+        </div>
+
+        <div className="legal-toggle" role="tablist" aria-label="Legal document">
+          <button className={isPrivacy ? "active" : ""} type="button" onClick={() => onSwitch("privacy")}>
+            Privacy Policy
+          </button>
+          <button className={!isPrivacy ? "active" : ""} type="button" onClick={() => onSwitch("terms")}>
+            Terms of Service
+          </button>
+        </div>
+
+        <div className="legal-content">
+          <p className="legal-updated">Last updated: {LEGAL_LAST_UPDATED}</p>
+          {isPrivacy ? <PrivacyPolicyContent /> : <TermsOfServiceContent />}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function PrivacyPolicyContent() {
+  return (
+    <>
+      <section>
+        <h3>Information we process</h3>
+        <p>
+          {APP_NAME} processes account details, uploaded or pasted study material, generated notes,
+          quizzes, flashcards, tutor chat history, mistake review data, and basic usage metadata needed to
+          run the product.
+        </p>
+      </section>
+      <section>
+        <h3>How we use information</h3>
+        <p>
+          We use this information to generate study tools, save sessions to your account, enforce usage
+          limits, troubleshoot errors, improve product quality, and protect the service from abuse.
+        </p>
+      </section>
+      <section>
+        <h3>AI providers</h3>
+        <p>
+          Study material may be sent to AI model providers, including OpenAI, to generate summaries,
+          cheat sheets, quizzes, flashcards, and tutor responses. Do not upload highly sensitive personal,
+          medical, financial, or confidential information.
+        </p>
+      </section>
+      <section>
+        <h3>Data control</h3>
+        <p>
+          You can delete individual sessions or clear saved sessions from the app. Some operational logs
+          and backups may remain for a limited period for security, debugging, and reliability.
+        </p>
+      </section>
+      <section>
+        <h3>Contact</h3>
+        <p>
+          For privacy questions, use the Help & feedback form in the account menu while the product is in beta.
+        </p>
+      </section>
+    </>
+  );
+}
+
+function TermsOfServiceContent() {
+  return (
+    <>
+      <section>
+        <h3>Use of the service</h3>
+        <p>
+          {APP_NAME} is an AI-assisted study workspace for summarizing course material, creating practice
+          tools, and reviewing mistakes. You are responsible for deciding whether generated content is
+          correct and appropriate for your class.
+        </p>
+      </section>
+      <section>
+        <h3>No guarantee of grades or accuracy</h3>
+        <p>
+          AI output can be incomplete or wrong. The service does not guarantee exam scores, academic
+          outcomes, or perfect explanations. Always verify important material against your course notes,
+          textbook, instructor guidance, or official solutions.
+        </p>
+      </section>
+      <section>
+        <h3>Acceptable use</h3>
+        <p>
+          Do not use the service to cheat, violate academic rules, upload material you do not have the
+          right to use, attack the system, scrape at high volume, or bypass usage limits.
+        </p>
+      </section>
+      <section>
+        <h3>Beta product status</h3>
+        <p>
+          The product is currently in beta. Features, limits, pricing, availability, and saved data behavior
+          may change as the product is prepared for broader launch.
+        </p>
+      </section>
+      <section>
+        <h3>Plans and billing</h3>
+        <p>
+          Paid plans are not active yet. Upgrade screens describe planned features only until payments are
+          enabled through a production billing provider.
+        </p>
+      </section>
+    </>
   );
 }
 

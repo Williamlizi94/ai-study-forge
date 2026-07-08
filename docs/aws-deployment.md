@@ -32,7 +32,7 @@ GLOBAL_DAILY_AI_LIMIT=100
 
 If the frontend and API are served from the same domain, `CORS_ORIGINS` can stay
 empty. If the frontend is served from a separate domain later, set
-`CORS_ORIGINS=https://yourdomain.com`.
+`CORS_ORIGINS=https://aistudyforge.com,https://www.aistudyforge.com`.
 
 ## Optional Google Login
 
@@ -42,7 +42,7 @@ are configured:
 ```text
 GOOGLE_CLIENT_ID=...
 GOOGLE_CLIENT_SECRET=...
-GOOGLE_REDIRECT_URI=https://yourdomain.com/api/auth/google/callback
+GOOGLE_REDIRECT_URI=https://aistudyforge.com/api/auth/google/callback
 ```
 
 Create an OAuth Client in Google Cloud Console and add the same callback URL as
