@@ -756,9 +756,20 @@ function App() {
   const isAccessLocked = Boolean(
     authReady && authStatus?.auth_required && !authToken && !isAccountMode,
   );
+  const showMarketingHome = Boolean(authReady && isAccountMode && !authToken);
 
   return (
     <div className="app">
+      {showMarketingHome ? (
+        <LandingPage
+          limits={authStatus}
+          onLogin={() => openAuthDialog("login")}
+          onSignup={() => openAuthDialog("signup")}
+          onUpgrade={openUpgradeDialog}
+          onLegal={openLegalDialog}
+        />
+      ) : (
+      <>
       <header className="topbar">
         <div className="brand-lockup">
           <div className="brand-mark">
@@ -1070,6 +1081,8 @@ function App() {
         </section>
       </main>
       )}
+      </>
+      )}
 
       {clearConfirmOpen && (
         <ConfirmDialog
@@ -1137,6 +1150,244 @@ function App() {
         />
       )}
     </div>
+  );
+}
+
+function LandingPage({ limits, onLogin, onSignup, onUpgrade, onLegal }) {
+  const featureCards = [
+    {
+      icon: FileText,
+      title: "AI Notes",
+      body: "Condense long lectures, slides, and homework solutions into the ideas most likely to matter on an exam.",
+    },
+    {
+      icon: ClipboardList,
+      title: "Cheat Sheets",
+      body: "Turn formulas, processes, and common traps into one compact review sheet.",
+    },
+    {
+      icon: CircleHelp,
+      title: "Practice Quiz",
+      body: "Generate mixed practice questions and get explanations after each answer.",
+    },
+    {
+      icon: BookMarked,
+      title: "Mistake Notebook",
+      body: "Missed quiz questions are saved automatically so weak spots do not disappear.",
+    },
+    {
+      icon: MessageSquareText,
+      title: "Ask AI Tutor",
+      body: "Ask focused questions grounded in the material you uploaded or pasted.",
+    },
+    {
+      icon: Layers3,
+      title: "Flashcards",
+      body: "Build recall cards for definitions, concepts, and exam vocabulary.",
+    },
+  ];
+
+  const workflowSteps = [
+    {
+      icon: Upload,
+      title: "Upload or paste material",
+      body: "PDFs, docs, slides, homework solutions, lecture notes, and pasted text.",
+    },
+    {
+      icon: Sparkles,
+      title: "Generate a study pack",
+      body: "Notes, cheat sheet, flashcards, and practice quiz from the same source.",
+    },
+    {
+      icon: Target,
+      title: "Practice what matters",
+      body: "Review missed questions and ask the tutor when something is still unclear.",
+    },
+  ];
+
+  return (
+    <main className="marketing-page">
+      <header className="marketing-nav">
+        <div className="brand-lockup">
+          <div className="brand-mark marketing-brand-mark">
+            <BookOpen size={22} aria-hidden="true" />
+          </div>
+          <div>
+            <h1>{APP_NAME}</h1>
+            <p>Exam-ready AI study workspace</p>
+          </div>
+        </div>
+        <nav className="marketing-links" aria-label="Product navigation">
+          <a href="#features">Features</a>
+          <a href="#workflow">Workflow</a>
+          <a href="#pricing">Pricing</a>
+        </nav>
+        <div className="marketing-actions">
+          <button className="sign-out-button" type="button" onClick={onLogin}>
+            Log in
+          </button>
+          <button type="button" onClick={onSignup}>
+            <Sparkles size={16} aria-hidden="true" />
+            <span>Sign up free</span>
+          </button>
+        </div>
+      </header>
+
+      <section className="marketing-hero">
+        <div className="hero-copy">
+          <span className="eyebrow">Built for the week before an exam</span>
+          <h2>Turn messy course material into a focused study plan.</h2>
+          <p>
+            Upload slides, PDFs, homework solutions, or pasted notes. AI Study Forge creates the notes,
+            cheat sheets, quizzes, flashcards, and mistake reviews students actually use before a test.
+          </p>
+          <div className="hero-actions">
+            <button type="button" onClick={onSignup}>
+              <Sparkles size={16} aria-hidden="true" />
+              <span>Start studying free</span>
+            </button>
+            <button className="sign-out-button" type="button" onClick={onLogin}>
+              Log in
+            </button>
+          </div>
+          <div className="hero-proof" aria-label="Product highlights">
+            <div>
+              <strong>PDF, DOCX, slides</strong>
+              <span>Upload or paste text</span>
+            </div>
+            <div>
+              <strong>Math ready</strong>
+              <span>LaTeX rendering for formulas</span>
+            </div>
+            <div>
+              <strong>Mistakes saved</strong>
+              <span>Wrong quiz answers become review notes</span>
+            </div>
+          </div>
+        </div>
+
+        <section className="product-preview" aria-label="AI Study Forge product preview">
+          <div className="preview-topline">
+            <div>
+              <span>Study pack</span>
+              <strong>Algorithms midterm</strong>
+            </div>
+            <span className="preview-status">Ready</span>
+          </div>
+          <div className="preview-source-card">
+            <div className="preview-icon">
+              <Upload size={18} aria-hidden="true" />
+            </div>
+            <div>
+              <strong>Lecture PDF parsed</strong>
+              <span>18,420 characters converted into review material</span>
+            </div>
+          </div>
+          <div className="preview-grid">
+            <div className="preview-card accent-teal">
+              <FileText size={18} aria-hidden="true" />
+              <strong>AI Notes</strong>
+              <span>Key ideas, examples, and exam traps</span>
+            </div>
+            <div className="preview-card accent-blue">
+              <ClipboardList size={18} aria-hidden="true" />
+              <strong>Cheat Sheet</strong>
+              <span>Formulas and step-by-step templates</span>
+            </div>
+            <div className="preview-card accent-amber">
+              <CircleHelp size={18} aria-hidden="true" />
+              <strong>Practice Quiz</strong>
+              <span>5 questions with explanations</span>
+            </div>
+            <div className="preview-card accent-red">
+              <BookMarked size={18} aria-hidden="true" />
+              <strong>Mistakes</strong>
+              <span>2 weak spots saved for review</span>
+            </div>
+          </div>
+        </section>
+      </section>
+
+      <section className="marketing-band" id="workflow">
+        <div className="marketing-section-heading">
+          <span className="eyebrow">Simple workflow</span>
+          <h2>From raw notes to exam practice in three steps.</h2>
+        </div>
+        <div className="workflow-grid">
+          {workflowSteps.map((step, index) => {
+            const Icon = step.icon;
+            return (
+              <article className="workflow-card" key={step.title}>
+                <span className="workflow-number">0{index + 1}</span>
+                <div className="workflow-icon">
+                  <Icon size={20} aria-hidden="true" />
+                </div>
+                <h3>{step.title}</h3>
+                <p>{step.body}</p>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="marketing-band" id="features">
+        <div className="marketing-section-heading">
+          <span className="eyebrow">Study tools</span>
+          <h2>Everything points back to faster review.</h2>
+        </div>
+        <div className="feature-grid">
+          {featureCards.map((feature) => {
+            const Icon = feature.icon;
+            return (
+              <article className="feature-card" key={feature.title}>
+                <div className="feature-icon">
+                  <Icon size={19} aria-hidden="true" />
+                </div>
+                <h3>{feature.title}</h3>
+                <p>{feature.body}</p>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="marketing-pricing" id="pricing">
+        <div>
+          <span className="eyebrow">Beta plan</span>
+          <h2>Start with a focused free workspace.</h2>
+          <p>
+            Current beta users can generate study tools within daily limits. Pro exam prep and exportable
+            study packs will be added after payment testing is complete.
+          </p>
+        </div>
+        <div className="pricing-card">
+          <div className="pricing-icon">
+            <Crown size={20} aria-hidden="true" />
+          </div>
+          <strong>Free beta</strong>
+          <span>{limits?.per_user_daily_ai_limit ?? 20} AI generations per day</span>
+          <button type="button" onClick={onSignup}>
+            <Sparkles size={16} aria-hidden="true" />
+            <span>Create account</span>
+          </button>
+          <button className="sign-out-button" type="button" onClick={onUpgrade}>
+            See planned Pro
+          </button>
+        </div>
+      </section>
+
+      <footer className="marketing-footer">
+        <span>{APP_NAME}</span>
+        <div>
+          <button className="marketing-footer-link" type="button" onClick={() => onLegal("privacy")}>
+            Privacy
+          </button>
+          <button className="marketing-footer-link" type="button" onClick={() => onLegal("terms")}>
+            Terms
+          </button>
+        </div>
+      </footer>
+    </main>
   );
 }
 

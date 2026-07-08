@@ -625,12 +625,12 @@ textarea:focus {
   font-size: 13px;
 }
 
-button:not(.icon-button):not(.session-open):not(.session-delete):not(.clear-sessions-button):not(.sign-out-button):not(.tabs button):not(.secondary-button):not(.choice-button):not(.auth-mode-toggle button):not(.legal-toggle button):not(.access-close-button):not(.google-auth-button):not(.account-avatar-button):not(.account-menu-item) {
+button:not(.icon-button):not(.session-open):not(.session-delete):not(.clear-sessions-button):not(.sign-out-button):not(.tabs button):not(.secondary-button):not(.choice-button):not(.auth-mode-toggle button):not(.legal-toggle button):not(.access-close-button):not(.google-auth-button):not(.account-avatar-button):not(.account-menu-item):not(.marketing-footer-link) {
   background: var(--teal);
   color: #fff;
 }
 
-button:not(.icon-button):not(.session-open):not(.session-delete):not(.clear-sessions-button):not(.sign-out-button):not(.tabs button):not(.secondary-button):not(.choice-button):not(.auth-mode-toggle button):not(.legal-toggle button):not(.access-close-button):not(.google-auth-button):not(.account-avatar-button):not(.account-menu-item):hover {
+button:not(.icon-button):not(.session-open):not(.session-delete):not(.clear-sessions-button):not(.sign-out-button):not(.tabs button):not(.secondary-button):not(.choice-button):not(.auth-mode-toggle button):not(.legal-toggle button):not(.access-close-button):not(.google-auth-button):not(.account-avatar-button):not(.account-menu-item):not(.marketing-footer-link):hover {
   background: var(--teal-dark);
 }
 
@@ -1375,6 +1375,401 @@ button:not(.icon-button):not(.session-open):not(.session-delete):not(.clear-sess
   width: 100%;
 }
 
+.marketing-page {
+  background:
+    linear-gradient(180deg, #f7faf8 0%, #eef4f1 46%, #f7faf8 100%);
+  color: var(--ink);
+  min-height: 100vh;
+}
+
+.marketing-nav {
+  align-items: center;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(230px, 1fr) auto minmax(230px, 1fr);
+  margin: 0 auto;
+  max-width: 1240px;
+  padding: 22px 28px;
+}
+
+.marketing-brand-mark {
+  box-shadow: 0 10px 24px rgba(37, 111, 97, 0.22);
+}
+
+.marketing-links {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(219, 225, 221, 0.82);
+  border-radius: 999px;
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  padding: 5px;
+}
+
+.marketing-links a {
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 800;
+  padding: 9px 13px;
+  text-decoration: none;
+}
+
+.marketing-links a:hover {
+  background: rgba(37, 111, 97, 0.09);
+  color: var(--teal);
+}
+
+.marketing-actions {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.marketing-hero,
+.marketing-band,
+.marketing-pricing,
+.marketing-footer {
+  margin: 0 auto;
+  max-width: 1240px;
+  padding-left: 28px;
+  padding-right: 28px;
+}
+
+.marketing-hero {
+  align-items: center;
+  display: grid;
+  gap: 42px;
+  grid-template-columns: minmax(0, 0.95fr) minmax(420px, 1.05fr);
+  padding-bottom: 72px;
+  padding-top: 46px;
+}
+
+.hero-copy {
+  display: grid;
+  gap: 22px;
+}
+
+.hero-copy h2,
+.marketing-section-heading h2,
+.marketing-pricing h2 {
+  font-size: 62px;
+  letter-spacing: 0;
+  line-height: 1.03;
+  margin: 0;
+}
+
+.hero-copy p,
+.marketing-section-heading p,
+.marketing-pricing p {
+  color: var(--muted);
+  font-size: 17px;
+  line-height: 1.65;
+  margin: 0;
+  max-width: 700px;
+}
+
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.hero-actions button,
+.marketing-actions button,
+.pricing-card button {
+  min-height: 44px;
+}
+
+.hero-proof {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 2px;
+}
+
+.hero-proof div {
+  background: rgba(255, 255, 255, 0.76);
+  border: 1px solid rgba(219, 225, 221, 0.88);
+  border-radius: 8px;
+  min-height: 86px;
+  padding: 14px;
+}
+
+.hero-proof strong,
+.hero-proof span {
+  display: block;
+}
+
+.hero-proof strong {
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+.hero-proof span {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+  margin-top: 5px;
+}
+
+.product-preview {
+  background: #fff;
+  border: 1px solid rgba(196, 207, 201, 0.9);
+  border-radius: 14px;
+  box-shadow: 0 28px 70px rgba(29, 35, 32, 0.16);
+  display: grid;
+  gap: 14px;
+  min-height: 520px;
+  overflow: hidden;
+  padding: 18px;
+  position: relative;
+}
+
+.product-preview::before {
+  background:
+    linear-gradient(90deg, rgba(37, 111, 97, 0.08) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(49, 95, 142, 0.06) 1px, transparent 1px);
+  background-size: 34px 34px;
+  content: "";
+  inset: 0;
+  opacity: 0.48;
+  pointer-events: none;
+  position: absolute;
+}
+
+.product-preview > * {
+  position: relative;
+}
+
+.preview-topline,
+.preview-source-card {
+  align-items: center;
+  background: rgba(247, 250, 248, 0.92);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 14px;
+}
+
+.preview-topline span,
+.preview-source-card span,
+.preview-card span,
+.pricing-card span {
+  color: var(--muted);
+  display: block;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.preview-topline strong,
+.preview-source-card strong,
+.preview-card strong,
+.pricing-card strong {
+  display: block;
+  font-size: 17px;
+  line-height: 1.3;
+  margin-top: 3px;
+}
+
+.preview-status {
+  background: rgba(37, 111, 97, 0.1);
+  border: 1px solid rgba(37, 111, 97, 0.2);
+  border-radius: 999px;
+  color: var(--teal) !important;
+  font-weight: 900;
+  padding: 6px 10px;
+}
+
+.preview-icon,
+.feature-icon,
+.workflow-icon,
+.pricing-icon {
+  align-items: center;
+  border-radius: 9px;
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: 42px;
+  justify-content: center;
+  width: 42px;
+}
+
+.preview-icon,
+.feature-icon,
+.workflow-icon,
+.pricing-icon {
+  background: rgba(37, 111, 97, 0.1);
+  color: var(--teal);
+}
+
+.preview-source-card {
+  justify-content: flex-start;
+}
+
+.preview-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.preview-card {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  display: grid;
+  gap: 10px;
+  min-height: 158px;
+  padding: 16px;
+}
+
+.preview-card svg {
+  border-radius: 9px;
+  box-sizing: content-box;
+  padding: 10px;
+}
+
+.preview-card.accent-teal svg {
+  background: rgba(37, 111, 97, 0.1);
+  color: var(--teal);
+}
+
+.preview-card.accent-blue svg {
+  background: rgba(49, 95, 142, 0.11);
+  color: var(--blue);
+}
+
+.preview-card.accent-amber svg {
+  background: rgba(170, 116, 32, 0.12);
+  color: var(--amber);
+}
+
+.preview-card.accent-red svg {
+  background: rgba(173, 70, 58, 0.11);
+  color: var(--red);
+}
+
+.marketing-band {
+  display: grid;
+  gap: 22px;
+  padding-bottom: 56px;
+  padding-top: 12px;
+}
+
+.marketing-section-heading {
+  display: grid;
+  gap: 8px;
+}
+
+.marketing-section-heading h2,
+.marketing-pricing h2 {
+  font-size: 42px;
+}
+
+.workflow-grid,
+.feature-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.workflow-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.feature-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.workflow-card,
+.feature-card,
+.pricing-card {
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(219, 225, 221, 0.9);
+  border-radius: 10px;
+  box-shadow: 0 12px 30px rgba(29, 35, 32, 0.06);
+}
+
+.workflow-card,
+.feature-card {
+  display: grid;
+  gap: 12px;
+  min-height: 210px;
+  padding: 18px;
+}
+
+.workflow-number {
+  color: var(--teal);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.workflow-card h3,
+.feature-card h3 {
+  font-size: 18px;
+  line-height: 1.25;
+  margin: 0;
+}
+
+.workflow-card p,
+.feature-card p {
+  color: var(--muted);
+  line-height: 1.58;
+  margin: 0;
+}
+
+.marketing-pricing {
+  align-items: center;
+  display: grid;
+  gap: 24px;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  padding-bottom: 60px;
+  padding-top: 10px;
+}
+
+.pricing-card {
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+}
+
+.pricing-card button {
+  width: 100%;
+}
+
+.marketing-footer {
+  align-items: center;
+  border-top: 1px solid rgba(219, 225, 221, 0.9);
+  color: var(--muted);
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  padding-bottom: 28px;
+  padding-top: 24px;
+}
+
+.marketing-footer > span {
+  font-weight: 900;
+}
+
+.marketing-footer div {
+  display: flex;
+  gap: 12px;
+}
+
+.marketing-footer-link {
+  background: transparent;
+  color: var(--muted);
+  min-height: 32px;
+  padding: 0;
+}
+
+.marketing-footer-link:hover {
+  color: var(--teal);
+}
+
 .exam-prep-panel {
   gap: 16px;
 }
@@ -1939,6 +2334,33 @@ button:not(.icon-button):not(.session-open):not(.session-delete):not(.clear-sess
     grid-template-columns: 1fr;
   }
 
+  .marketing-nav {
+    grid-template-columns: 1fr;
+  }
+
+  .marketing-links,
+  .marketing-actions {
+    justify-content: flex-start;
+  }
+
+  .marketing-hero,
+  .marketing-pricing {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-copy h2 {
+    font-size: 50px;
+  }
+
+  .product-preview {
+    min-height: auto;
+  }
+
+  .workflow-grid,
+  .feature-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .workspace {
     min-height: auto;
   }
@@ -1953,6 +2375,65 @@ button:not(.icon-button):not(.session-open):not(.session-delete):not(.clear-sess
   .shell {
     padding-left: 14px;
     padding-right: 14px;
+  }
+
+  .marketing-nav,
+  .marketing-hero,
+  .marketing-band,
+  .marketing-pricing,
+  .marketing-footer {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .marketing-nav {
+    padding-top: 16px;
+  }
+
+  .marketing-links {
+    border-radius: 8px;
+    flex-wrap: wrap;
+    justify-content: stretch;
+    width: 100%;
+  }
+
+  .marketing-links a {
+    flex: 1 1 auto;
+    text-align: center;
+  }
+
+  .marketing-actions,
+  .hero-actions,
+  .marketing-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .marketing-actions button,
+  .hero-actions button {
+    width: 100%;
+  }
+
+  .marketing-hero {
+    gap: 28px;
+    padding-bottom: 48px;
+    padding-top: 30px;
+  }
+
+  .hero-copy h2 {
+    font-size: 34px;
+  }
+
+  .marketing-section-heading h2,
+  .marketing-pricing h2 {
+    font-size: 30px;
+  }
+
+  .hero-proof,
+  .preview-grid,
+  .workflow-grid,
+  .feature-grid {
+    grid-template-columns: 1fr;
   }
 
   .topbar,
