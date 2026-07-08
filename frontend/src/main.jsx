@@ -1828,6 +1828,7 @@ function AccessGate({
 }) {
   const isAccountMode = authMode === "account";
   const isSignup = formMode === "signup";
+  const canUseGoogleAuth = isAccountMode && googleAuthEnabled;
   const title = isLoading
     ? "Checking access"
     : isAccountMode
@@ -1888,26 +1889,26 @@ function AccessGate({
                   </button>
                 </div>
 
-                <button
-                  className="google-auth-button"
-                  type="button"
-                  onClick={onGoogleAuth}
-                  disabled={isBusy}
-                  title={
-                    googleAuthEnabled
-                      ? "Continue with Google"
-                      : "Google sign-in requires Google OAuth credentials"
-                  }
-                >
-                  <span className="google-mark" aria-hidden="true">
-                    G
-                  </span>
-                  <span>Continue with Google</span>
-                </button>
+                {canUseGoogleAuth && (
+                  <>
+                    <button
+                      className="google-auth-button"
+                      type="button"
+                      onClick={onGoogleAuth}
+                      disabled={isBusy}
+                      title="Continue with Google"
+                    >
+                      <span className="google-mark" aria-hidden="true">
+                        G
+                      </span>
+                      <span>Continue with Google</span>
+                    </button>
 
-                <div className="auth-divider" aria-hidden="true">
-                  <span>or use email</span>
-                </div>
+                    <div className="auth-divider" aria-hidden="true">
+                      <span>or use email</span>
+                    </div>
+                  </>
+                )}
 
                 <label className="field-label" htmlFor="access-email">
                   Email
