@@ -174,6 +174,7 @@ class StudySession(BaseModel):
     id: str
     title: str
     source_text: str
+    is_favorite: bool = False
     summary: str | None = None
     cheat_sheet: str | None = None
     flashcards: list[Flashcard] = Field(default_factory=list)
@@ -191,6 +192,7 @@ class StudySession(BaseModel):
 class StudySessionListItem(BaseModel):
     id: str
     title: str
+    is_favorite: bool = False
     created_at: str
     updated_at: str
     has_summary: bool
@@ -203,6 +205,10 @@ class StudySessionListItem(BaseModel):
     targeted_practice_count: int
     has_targeted_practice_review: bool
     chat_count: int
+
+
+class StudySessionFavoriteUpdate(BaseModel):
+    is_favorite: bool
 
 
 class SummaryResponse(BaseModel):

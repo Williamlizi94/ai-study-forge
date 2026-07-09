@@ -103,6 +103,7 @@ def init_db() -> None:
                 flashcards_json TEXT NOT NULL DEFAULT '[]',
                 quiz_json TEXT NOT NULL DEFAULT '[]',
                 quiz_review TEXT,
+                is_favorite INTEGER NOT NULL DEFAULT 0,
                 diagnostic_json TEXT NOT NULL DEFAULT '[]',
                 diagnostic_review TEXT,
                 targeted_practice_json TEXT NOT NULL DEFAULT '[]',
@@ -116,6 +117,7 @@ def init_db() -> None:
         _ensure_column(connection, "study_sessions", "owner_id", "TEXT NOT NULL DEFAULT 'local-dev'")
         _ensure_column(connection, "study_sessions", "cheat_sheet", "TEXT")
         _ensure_column(connection, "study_sessions", "quiz_review", "TEXT")
+        _ensure_column(connection, "study_sessions", "is_favorite", "INTEGER NOT NULL DEFAULT 0")
         _ensure_column(connection, "study_sessions", "diagnostic_json", "TEXT NOT NULL DEFAULT '[]'")
         _ensure_column(connection, "study_sessions", "diagnostic_review", "TEXT")
         _ensure_column(
@@ -359,6 +361,7 @@ def _row_to_session(row: sqlite3.Row) -> StudySession:
         id=row["id"],
         title=row["title"],
         source_text=row["source_text"],
+        is_favorite=bool(row["is_favorite"]),
         summary=row["summary"],
         cheat_sheet=row["cheat_sheet"],
         flashcards=[Flashcard(**item) for item in _loads(row["flashcards_json"], [])],
@@ -408,7 +411,7 @@ def create_session(
 def list_sessions(owner_id: str | None = None) -> list[dict[str, Any]]:
     with get_connection() as connection:
         sql = """
-        SELECT id, title, summary, cheat_sheet, flashcards_json, quiz_json,
+        SELECT id, title, is_favorite, summary, cheat_sheet, flashcards_json, quiz_json,
                quiz_review, diagnostic_json, diagnostic_review,
                targeted_practice_json, targeted_practice_review,
                chat_messages_json, created_at, updated_at
@@ -424,6 +427,7 @@ def list_sessions(owner_id: str | None = None) -> list[dict[str, Any]]:
         {
             "id": row["id"],
             "title": row["title"],
+            "is_favorite": bool(row["is_favorite"]),
             "created_at": row["created_at"],
             "updated_at": row["updated_at"],
             "has_summary": bool(row["summary"]),
@@ -472,6 +476,27 @@ def delete_all_sessions(owner_id: str | None = None) -> int:
         else:
             cursor = _execute(connection, "DELETE FROM study_sessions")
         return cursor.rowcount
+
+
+def set_session_favorite(
+    session_id: str,
+    is_favorite: bool,
+    owner_id: str | None = None,
+) -> StudySession | None:
+    with get_connection() as connection:
+        sql = """
+        UPDATE study_sessions
+        SET is_favorite = ?
+        WHERE id = ?
+        """
+        params: tuple[Any, ...] = (1 if is_favorite else 0, session_id)
+        if owner_id:
+            sql += " AND owner_id = ?"
+            params = (1 if is_favorite else 0, session_id, owner_id)
+        cursor = _execute(connection, sql, params)
+        if cursor.rowcount == 0:
+            return None
+    return get_session(session_id, owner_id=owner_id)
 
 
 def create_feedback(owner_id: str, message: str) -> dict[str, str]:

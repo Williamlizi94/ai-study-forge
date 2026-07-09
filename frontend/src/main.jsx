@@ -23,6 +23,7 @@ import {
   RefreshCw,
   Send,
   Sparkles,
+  Star,
   Target,
   Trash2,
   Upload,
@@ -40,18 +41,19 @@ const AUTH_TOKEN_KEY = "aiStudyAssistantAuthToken";
 const AUTH_USER_KEY = "aiStudyAssistantAuthUser";
 
 const tabs = [
-  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { id: "exam-prep", label: "Exam Prep", icon: GraduationCap },
-  { id: "summary", label: "AI Notes", icon: FileText },
-  { id: "cheat-sheet", label: "Cheat Sheet", icon: ClipboardList },
-  { id: "quiz", label: "Practice Quiz", icon: CircleHelp },
-  { id: "mistakes", label: "Mistakes", icon: BookMarked },
-  { id: "chat", label: "Ask AI Tutor", icon: MessageSquareText },
-  { id: "flashcards", label: "Flashcards", icon: Layers3 },
+  { id: "exam-prep", label: "Exam Prep", icon: GraduationCap, priority: "primary" },
+  { id: "quiz", label: "Practice Quiz", icon: CircleHelp, priority: "primary" },
+  { id: "chat", label: "Ask AI Tutor", icon: MessageSquareText, priority: "primary" },
+  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, priority: "secondary" },
+  { id: "summary", label: "AI Notes", icon: FileText, priority: "secondary" },
+  { id: "cheat-sheet", label: "Cheat Sheet", icon: ClipboardList, priority: "secondary" },
+  { id: "flashcards", label: "Flashcards", icon: Layers3, priority: "secondary" },
+  { id: "mistakes", label: "Mistakes", icon: BookMarked, priority: "secondary" },
 ];
 
 function App() {
   const fileInputRef = React.useRef(null);
+  const sourceTextareaRef = React.useRef(null);
   const accountMenuRef = React.useRef(null);
   const [apiOnline, setApiOnline] = React.useState(false);
   const [currentSession, setCurrentSession] = React.useState(null);
@@ -74,6 +76,7 @@ function App() {
   const [upgradeDialogOpen, setUpgradeDialogOpen] = React.useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = React.useState(false);
   const [accountSettingsOpen, setAccountSettingsOpen] = React.useState(false);
+  const [favoritesOpen, setFavoritesOpen] = React.useState(false);
   const [helpDialogOpen, setHelpDialogOpen] = React.useState(false);
   const [legalDialogKind, setLegalDialogKind] = React.useState(null);
   const [feedbackText, setFeedbackText] = React.useState("");
@@ -207,6 +210,15 @@ function App() {
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
+  }
+
+  function focusStudyMaterial() {
+    if (sourceTextareaRef.current) {
+      sourceTextareaRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+      sourceTextareaRef.current.focus();
+      return;
+    }
+    fileInputRef.current?.click();
   }
 
   function resetWorkspaceDraft() {
@@ -355,6 +367,7 @@ function App() {
     setAuthUser(null);
     setAccountMenuOpen(false);
     setAccountSettingsOpen(false);
+    setFavoritesOpen(false);
     setHelpDialogOpen(false);
     setUpgradeDialogOpen(false);
     setLegalDialogKind(null);
@@ -365,6 +378,11 @@ function App() {
   function openAccountSettings() {
     setAccountMenuOpen(false);
     setAccountSettingsOpen(true);
+  }
+
+  function openFavorites() {
+    setAccountMenuOpen(false);
+    setFavoritesOpen(true);
   }
 
   function openHelpCenter() {
@@ -381,7 +399,7 @@ function App() {
   function openClearSessionsFromAccount() {
     setAccountSettingsOpen(false);
     if (!sessions.length) {
-      showNotice("No saved sessions to clear.");
+      showNotice("No history records to clear.");
       return;
     }
     setClearConfirmOpen(true);
@@ -469,7 +487,7 @@ function App() {
       setActiveTab("dashboard");
       setSelectedFile(null);
       resetFileInput();
-      showNotice("Upload successful. You can generate a study tool now.");
+      showNotice("Material processed. Generate an exam review pack when ready.");
     } catch (error) {
       showNotice(error.message, "error");
     } finally {
@@ -500,7 +518,7 @@ function App() {
         resetWorkspaceDraft();
       }
       await loadSessions();
-      showNotice("Session deleted.");
+      showNotice("History record deleted.");
     } catch (error) {
       showNotice(error.message, "error");
     } finally {
@@ -530,11 +548,34 @@ function App() {
       resetWorkspaceDraft();
       setClearConfirmOpen(false);
       await loadSessions();
-      showNotice("All sessions cleared.");
+      showNotice("History cleared.");
     } catch (error) {
       showNotice(error.message, "error");
     } finally {
       setBusy("clear-sessions", false);
+    }
+  }
+
+  async function toggleSessionFavorite(sessionId, nextFavorite) {
+    if (!requireSignedIn()) {
+      return;
+    }
+
+    setBusy(`favorite-${sessionId}`, true);
+    try {
+      const updatedSession = await apiRequest(`/study/sessions/${sessionId}/favorite`, {
+        method: "POST",
+        body: JSON.stringify({ is_favorite: nextFavorite }),
+      });
+      if (currentSession?.id === updatedSession.id) {
+        setCurrentSession(updatedSession);
+      }
+      await loadSessions();
+      showNotice(nextFavorite ? "Added to favorites." : "Removed from favorites.");
+    } catch (error) {
+      showNotice(error.message, "error");
+    } finally {
+      setBusy(`favorite-${sessionId}`, false);
     }
   }
 
@@ -588,6 +629,37 @@ function App() {
       showNotice(error.message, "error");
     } finally {
       setBusy(kind, false);
+    }
+  }
+
+  async function generateExamReviewPack() {
+    setBusy("exam-pack", true);
+    try {
+      let session = await ensureActiveSession();
+      if (!session) {
+        return;
+      }
+
+      for (const kind of ["summary", "cheat-sheet", "flashcards", "quiz"]) {
+        if (isSessionAssetReady(session, kind)) {
+          continue;
+        }
+        const result = await apiRequest(`/study/sessions/${session.id}/${kind}`, {
+          method: "POST",
+        });
+        session = result.session;
+        setCurrentSession(session);
+      }
+
+      setQuizAnswers({});
+      setQuizReview(null);
+      await loadSessions();
+      setActiveTab("exam-prep");
+      showNotice("Exam Review Pack ready.");
+    } catch (error) {
+      showNotice(error.message, "error");
+    } finally {
+      setBusy("exam-pack", false);
     }
   }
 
@@ -746,11 +818,15 @@ function App() {
 
   const stats = {
     chars: sourceText.length,
-    sheet: currentSession?.cheat_sheet ? "Yes" : "No",
+    files: sourceText.trim().length ? 1 : 0,
+    notes: currentSession?.summary ? 1 : 0,
+    cheatSheets: currentSession?.cheat_sheet ? 1 : 0,
+    questions: currentSession?.quiz?.length ?? 0,
     flashcards: currentSession?.flashcards?.length ?? 0,
-    quiz: currentSession?.quiz?.length ?? 0,
-    chat: currentSession?.chat_messages?.length ?? 0,
+    tutorChats: currentSession?.chat_messages?.length ?? 0,
   };
+  const hasStudyMaterial = sourceText.trim().length >= 50;
+  const favoriteSessions = sessions.filter((session) => session.is_favorite);
   const isAppLoading = !authReady;
   const isAccountMode = authStatus?.auth_mode === "account";
   const isAccessLocked = Boolean(
@@ -782,7 +858,7 @@ function App() {
                 ? authStatus?.auth_mode === "account"
                   ? "Account access required"
                   : "Beta access required"
-                : authUser?.email || (currentSession ? currentSession.title : "No active session")}
+                : maskEmail(authUser?.email) || (currentSession ? currentSession.title : "No active history")}
             </p>
           </div>
         </div>
@@ -803,6 +879,7 @@ function App() {
               user={authUser}
               isOpen={accountMenuOpen}
               sessionsCount={sessions.length}
+              favoritesCount={favoriteSessions.length}
               limits={authStatus}
               onToggle={() => setAccountMenuOpen((current) => !current)}
               onUpgrade={() => {
@@ -810,6 +887,7 @@ function App() {
                 openUpgradeDialog();
               }}
               onSettings={openAccountSettings}
+              onFavorites={openFavorites}
               onHelp={openHelpCenter}
               onLegal={openLegalDialog}
               onSignOut={clearAuthToken}
@@ -839,9 +917,12 @@ function App() {
         />
       ) : (
       <main className="shell">
-        <aside className="sidebar" aria-label="Study material and sessions">
+        <aside className="sidebar" aria-label="Study material and history">
           <section className="tool-panel">
-            <PanelHeader icon={Brain} title="Study Material" />
+            <PanelHeader icon={Brain} title="Step 1: Add Study Material" />
+            <p className="panel-helper">
+              Upload lecture slides, PDFs, notes, homework solutions, or paste text from course materials.
+            </p>
 
             <label className="field-label" htmlFor="session-title">
               Title
@@ -851,7 +932,7 @@ function App() {
               value={title}
               maxLength={120}
               onChange={handleTitleChange}
-              placeholder="Session title"
+              placeholder="Study title"
             />
 
             <label className="field-label" htmlFor="document-file">
@@ -883,7 +964,7 @@ function App() {
                 disabled={busy.upload}
               >
                 {busy.upload ? <Loader2 className="spin" size={16} /> : <Upload size={16} />}
-                <span>Parse</span>
+                <span>Process Material</span>
               </button>
             </div>
 
@@ -901,34 +982,35 @@ function App() {
             ) : (
               <textarea
                 id="source-text"
+                ref={sourceTextareaRef}
                 value={sourceText}
                 spellCheck="true"
                 onChange={handleSourceTextChange}
-                placeholder="Paste notes, homework solutions, lecture transcripts, textbook excerpts, or parsed document text here."
+                placeholder="Paste course notes, homework solutions, lecture transcripts, or textbook excerpts here."
               />
             )}
 
             <div className="source-footer">
               <span>{stats.chars.toLocaleString()} chars</span>
-              <span>Generate a study tool to save this material</span>
+              <span>Generate an exam review pack to save this material</span>
             </div>
           </section>
 
           <section className="tool-panel sessions-panel">
             <div className="section-title-row">
-              <PanelHeader icon={LibraryBig} title="Sessions" compact />
+              <PanelHeader icon={LibraryBig} title="History" compact />
               <div className="section-actions">
                 <button
                   className="clear-sessions-button"
                   type="button"
                   onClick={requestClearStudySessions}
                   disabled={busy["clear-sessions"] || !sessions.length}
-                  title="Clear all sessions"
+                  title="Clear history"
                 >
                   {busy["clear-sessions"] ? <Loader2 className="spin" size={14} /> : <Trash2 size={14} />}
                   <span>Clear</span>
                 </button>
-                <button className="icon-button" type="button" onClick={loadSessions} title="Refresh sessions">
+                <button className="icon-button" type="button" onClick={loadSessions} title="Refresh history">
                   <RefreshCw size={16} />
                 </button>
               </div>
@@ -937,8 +1019,10 @@ function App() {
               sessions={sessions}
               activeId={currentSession?.id}
               onOpen={openSession}
+              onToggleFavorite={toggleSessionFavorite}
               onDelete={deleteStudySession}
               isDeleting={(sessionId) => Boolean(busy[`delete-${sessionId}`])}
+              isFavoriteBusy={(sessionId) => Boolean(busy[`favorite-${sessionId}`])}
             />
           </section>
 
@@ -947,12 +1031,15 @@ function App() {
               <Crown size={16} aria-hidden="true" />
             </div>
             <div>
-              <h2>Beta Plan</h2>
-              <p>Pro exam prep coming soon</p>
+              <h2>Unlock Pro Exam Prep</h2>
+              <p>
+                Generate full exam review packs with cheat sheets, practice exams, answer explanations,
+                PDF export, and higher upload limits.
+              </p>
             </div>
             <button type="button" onClick={openUpgradeDialog}>
               <Crown size={15} />
-              <span>Upgrade</span>
+              <span>Unlock Pro</span>
             </button>
           </section>
         </aside>
@@ -966,26 +1053,50 @@ function App() {
                   ? currentSession.title
                   : sourceText.trim()
                     ? "Material ready for exam prep"
-                    : "Upload notes, paste text, or open a session"}
+                    : "Upload notes, paste text, or open history"}
               </p>
             </div>
-            <div className="stat-strip" aria-label="Session stats">
-              <Stat label="Chars" value={stats.chars.toLocaleString()} />
-              <Stat label="Sheet" value={stats.sheet} />
-              <Stat label="Cards" value={stats.flashcards} />
-              <Stat label="Quiz" value={stats.quiz} />
-              <Stat label="Chat" value={stats.chat} />
+            {currentSession && (
+              <button
+                className={currentSession.is_favorite ? "favorite-current-button active" : "favorite-current-button"}
+                type="button"
+                onClick={() => toggleSessionFavorite(currentSession.id, !currentSession.is_favorite)}
+                disabled={busy[`favorite-${currentSession.id}`]}
+                aria-pressed={Boolean(currentSession.is_favorite)}
+              >
+                {busy[`favorite-${currentSession.id}`] ? (
+                  <Loader2 className="spin" size={16} />
+                ) : (
+                  <Star size={16} fill={currentSession.is_favorite ? "currentColor" : "none"} />
+                )}
+                <span>{currentSession.is_favorite ? "Favorited" : "Add favorite"}</span>
+              </button>
+            )}
+            <div className="stat-strip" aria-label="Study stats">
+              <Stat label="Files" value={stats.files.toLocaleString()} />
+              <Stat label="Notes" value={stats.notes.toLocaleString()} />
+              <Stat label="Questions" value={stats.questions.toLocaleString()} />
+              <Stat label="Flashcards" value={stats.flashcards.toLocaleString()} />
+              <Stat label="Tutor Chats" value={stats.tutorChats.toLocaleString()} />
             </div>
           </div>
 
           <nav className="tabs" aria-label="Study tools">
             {tabs.map((tab) => {
               const Icon = tab.icon;
+              const requiresMaterial = ["exam-prep", "quiz", "chat"].includes(tab.id);
+              const tabDisabled = requiresMaterial && !hasStudyMaterial;
+              const tabClassName = [
+                activeTab === tab.id ? "active" : "",
+                tab.priority === "primary" ? "tab-primary" : "tab-secondary",
+              ].filter(Boolean).join(" ");
               return (
                 <button
                   key={tab.id}
-                  className={activeTab === tab.id ? "active" : ""}
+                  className={tabClassName}
                   type="button"
+                  disabled={tabDisabled}
+                  title={tabDisabled ? "Upload material first to unlock exam prep tools" : undefined}
                   onClick={() => setActiveTab(tab.id)}
                 >
                   <Icon size={16} aria-hidden="true" />
@@ -1002,17 +1113,20 @@ function App() {
               <DashboardPanel
                 sessions={sessions}
                 stats={stats}
-                hasMaterial={sourceText.trim().length >= 50}
+                hasMaterial={hasStudyMaterial}
                 currentSession={currentSession}
                 quizReview={quizReview}
                 onOpenSession={openSession}
                 onSelectTool={setActiveTab}
+                onGeneratePack={generateExamReviewPack}
+                onUploadFocus={focusStudyMaterial}
+                isGeneratingPack={Boolean(busy["exam-pack"])}
                 onUpgrade={openUpgradeDialog}
               />
             )}
             {activeTab === "exam-prep" && (
               <ExamPrepPanel
-                hasMaterial={sourceText.trim().length >= 50}
+                hasMaterial={hasStudyMaterial}
                 currentSession={currentSession}
                 onSelectTool={setActiveTab}
                 onGenerateSummary={() => generateStudyAsset("summary")}
@@ -1020,6 +1134,7 @@ function App() {
                 onGenerateQuiz={() => generateStudyAsset("quiz")}
                 onGenerateFlashcards={() => generateStudyAsset("flashcards")}
                 isBusy={
+                  busy["exam-pack"] ||
                   busy.summary ||
                   busy["cheat-sheet"] ||
                   busy.quiz ||
@@ -1086,9 +1201,9 @@ function App() {
 
       {clearConfirmOpen && (
         <ConfirmDialog
-          title="Clear all sessions?"
-          message={`This will delete ${sessions.length} saved session${sessions.length === 1 ? "" : "s"}. This action cannot be undone.`}
-          confirmLabel="Clear all"
+          title="Clear history?"
+          message={`This will delete ${sessions.length} history record${sessions.length === 1 ? "" : "s"}. This action cannot be undone.`}
+          confirmLabel="Clear history"
           cancelLabel="Cancel"
           isBusy={busy["clear-sessions"]}
           onCancel={() => setClearConfirmOpen(false)}
@@ -1111,6 +1226,19 @@ function App() {
           onLegal={openLegalDialog}
           onSignOut={clearAuthToken}
           onClose={() => setAccountSettingsOpen(false)}
+        />
+      )}
+      {favoritesOpen && (
+        <FavoritesDialog
+          sessions={favoriteSessions}
+          activeId={currentSession?.id}
+          onOpen={(sessionId) => {
+            setFavoritesOpen(false);
+            openSession(sessionId);
+          }}
+          onToggleFavorite={toggleSessionFavorite}
+          isFavoriteBusy={(sessionId) => Boolean(busy[`favorite-${sessionId}`])}
+          onClose={() => setFavoritesOpen(false)}
         />
       )}
       {helpDialogOpen && (
@@ -1396,19 +1524,22 @@ const AccountMenu = React.forwardRef(function AccountMenu(
     user,
     isOpen,
     sessionsCount,
+    favoritesCount,
     limits,
     onToggle,
     onUpgrade,
     onSettings,
+    onFavorites,
     onHelp,
     onLegal,
     onSignOut,
   },
   ref,
 ) {
-  const email = user?.email || "Signed in";
+  const rawEmail = user?.email || "";
+  const displayEmail = maskEmail(rawEmail) || "Signed in";
   const plan = user?.plan ? `${user.plan.slice(0, 1).toUpperCase()}${user.plan.slice(1)}` : "Free";
-  const initial = getAccountInitial(email);
+  const initial = getAccountInitial(rawEmail || displayEmail);
 
   return (
     <div className="account-menu" ref={ref}>
@@ -1430,18 +1561,22 @@ const AccountMenu = React.forwardRef(function AccountMenu(
               {initial}
             </div>
             <div>
-              <strong>{email}</strong>
+              <strong>{displayEmail}</strong>
               <span>{plan} plan</span>
             </div>
           </div>
 
           <div className="account-metrics">
             <div>
-              <span>Saved sessions</span>
+              <span>History</span>
               <strong>{sessionsCount}</strong>
             </div>
             <div>
-              <span>Daily AI limit</span>
+              <span>Favorites</span>
+              <strong>{favoritesCount}</strong>
+            </div>
+            <div>
+              <span>AI limit</span>
               <strong>{limits?.per_user_daily_ai_limit ?? 0}</strong>
             </div>
           </div>
@@ -1454,11 +1589,19 @@ const AccountMenu = React.forwardRef(function AccountMenu(
             </span>
           </button>
 
+          <button className="account-menu-item" type="button" role="menuitem" onClick={onFavorites}>
+            <Star size={16} aria-hidden="true" />
+            <span>
+              <strong>Favorites</strong>
+              <small>{favoritesCount ? `${favoritesCount} saved study record${favoritesCount === 1 ? "" : "s"}` : "Bookmark key study records"}</small>
+            </span>
+          </button>
+
           <button className="account-menu-item" type="button" role="menuitem" onClick={onUpgrade}>
             <Crown size={16} aria-hidden="true" />
             <span>
-              <strong>Upgrade plan</strong>
-              <small>Higher limits and export tools</small>
+              <strong>Unlock Pro</strong>
+              <small>Exam packs, exports, and higher limits</small>
             </span>
           </button>
 
@@ -1495,6 +1638,30 @@ function getAccountInitial(email) {
   return (email.trim()[0] || "A").toUpperCase();
 }
 
+function maskEmail(email = "") {
+  const normalized = email.trim();
+  if (!normalized) {
+    return "";
+  }
+  if (!normalized.includes("@")) {
+    return normalized;
+  }
+
+  const [local, domain] = normalized.split("@");
+  const visibleLocal =
+    local.length <= 2 ? local.slice(0, 1) : `${local.slice(0, 2)}...${local.slice(-1)}`;
+  const [domainName = "", ...domainParts] = domain.split(".");
+  const topLevel = domainParts.length ? domainParts[domainParts.length - 1] : "";
+  const visibleDomain = domainName ? `${domainName[0]}***${topLevel ? `.${topLevel}` : ""}` : "email";
+
+  return `${visibleLocal}@${visibleDomain}`;
+}
+
+function formatCount(count, singular, plural = `${singular}s`) {
+  const value = Number(count) || 0;
+  return `${value} ${value === 1 ? singular : plural}`;
+}
+
 function DashboardPanel({
   sessions,
   stats,
@@ -1503,31 +1670,34 @@ function DashboardPanel({
   quizReview,
   onOpenSession,
   onSelectTool,
+  onGeneratePack,
+  onUploadFocus,
+  isGeneratingPack,
   onUpgrade,
 }) {
   const recentSessions = sessions.slice(0, 4);
   const missedCount = quizReview?.incorrect?.length ?? 0;
   const readinessItems = [
-    { label: "Material", value: stats.chars ? `${stats.chars.toLocaleString()} chars` : "Not added" },
-    { label: "Cheat Sheet", value: stats.sheet === "Yes" ? "Ready" : "Not ready" },
-    { label: "Practice Quiz", value: stats.quiz ? `${stats.quiz} questions` : "Not ready" },
-    { label: "Flashcards", value: stats.flashcards ? `${stats.flashcards} cards` : "Not ready" },
+    { label: "Material", value: stats.files ? "Added" : "Not added" },
+    { label: "AI Notes", value: stats.notes ? "Ready" : "Not ready" },
+    { label: "Practice Quiz", value: stats.questions ? `${stats.questions} questions` : "Not ready" },
+    { label: "Flashcards", value: stats.flashcards ? `${stats.flashcards} flashcards` : "Not ready" },
     { label: "Mistakes", value: missedCount ? `${missedCount} to review` : "No review yet" },
   ];
 
   const tasks = [
     {
-      title: "Exam Prep Pack",
-      body: "Build notes, cheat sheet, flashcards, and a broad practice quiz from the current material.",
+      title: "Exam Review Pack",
+      body: "One workflow creates AI Notes, Cheat Sheet, Flashcards, and a broad Practice Quiz.",
       icon: GraduationCap,
-      action: "Start",
-      onClick: () => onSelectTool("exam-prep"),
+      status: "Main workflow",
     },
     {
       title: "Practice Quiz",
       body: "Answer a broad mixed quiz. Missed questions are saved to Mistakes automatically.",
       icon: CircleHelp,
-      action: stats.quiz ? "Review" : "Generate",
+      action: stats.questions ? "Review" : "Generate",
+      requiresMaterial: true,
       onClick: () => onSelectTool("quiz"),
     },
     {
@@ -1535,6 +1705,7 @@ function DashboardPanel({
       body: "Ask focused questions grounded in the uploaded material.",
       icon: MessageSquareText,
       action: "Ask",
+      requiresMaterial: true,
       onClick: () => onSelectTool("chat"),
     },
     {
@@ -1551,17 +1722,27 @@ function DashboardPanel({
       <div className="dashboard-hero">
         <div>
           <span className="eyebrow">Exam-ready study workspace</span>
-          <h3>{currentSession ? `Continue ${currentSession.title}` : "Build a targeted study pack"}</h3>
+          <h3>Turn your lecture slides into an exam review pack</h3>
           <p>
-            {hasMaterial
-              ? "Your material is ready. Start with exam prep, practice, or tutor questions."
-              : "Add course material on the left to unlock exam prep tools."}
+            Upload PDFs, slides, notes, or homework materials to generate cheat sheets, practice quizzes,
+            flashcards, and AI tutor responses based on your course content.
           </p>
+          {!hasMaterial && (
+            <p className="hero-hint">Start by uploading a file or pasting course material on the left.</p>
+          )}
         </div>
-        <button type="button" onClick={() => onSelectTool("exam-prep")}>
-          <GraduationCap size={16} />
-          <span>Start Exam Prep</span>
-        </button>
+        <div className="dashboard-hero-actions">
+          <button type="button" onClick={onGeneratePack} disabled={!hasMaterial || isGeneratingPack}>
+            {isGeneratingPack ? <Loader2 className="spin" size={16} /> : <GraduationCap size={16} />}
+            <span>{isGeneratingPack ? "Generating Pack" : "Generate Exam Review Pack"}</span>
+          </button>
+          {!hasMaterial && (
+            <button className="secondary-button" type="button" onClick={onUploadFocus}>
+              <Upload size={16} />
+              <span>Upload Study Material</span>
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="readiness-strip">
@@ -1576,6 +1757,7 @@ function DashboardPanel({
       <div className="task-grid">
         {tasks.map((task) => {
           const Icon = task.icon;
+          const taskDisabled = task.requiresMaterial && !hasMaterial;
           return (
             <article className="task-card" key={task.title}>
               <div className="task-icon">
@@ -1585,10 +1767,20 @@ function DashboardPanel({
                 <h3>{task.title}</h3>
                 <p>{task.body}</p>
               </div>
-              <button className="secondary-button" type="button" onClick={task.onClick}>
-                <span>{task.action}</span>
-                <ArrowRight size={15} />
-              </button>
+              {task.onClick ? (
+                <button
+                  className="secondary-button"
+                  type="button"
+                  onClick={task.onClick}
+                  disabled={taskDisabled}
+                  title={taskDisabled ? "Upload material first to unlock exam prep tools" : undefined}
+                >
+                  <span>{task.action}</span>
+                  <ArrowRight size={15} />
+                </button>
+              ) : (
+                <span className="task-badge">{task.status}</span>
+              )}
             </article>
           );
         })}
@@ -1608,16 +1800,16 @@ function DashboardPanel({
                   key={session.id}
                   onClick={() => onOpenSession(session.id)}
                 >
-                  <strong>{session.title}</strong>
-                  <span>
-                    {session.has_summary ? "Notes" : "Draft"} | {session.has_cheat_sheet ? "Sheet" : "No sheet"} |{" "}
-                    {session.flashcard_count} cards | {session.quiz_count} quiz
-                  </span>
+                  <strong>
+                    {session.is_favorite && <Star size={13} fill="currentColor" aria-hidden="true" />}
+                    <span>{session.title}</span>
+                  </strong>
+                  <span>{sessionSummary(session)}</span>
                 </button>
               ))}
             </div>
           ) : (
-            <div className="dashboard-empty">No saved sessions yet</div>
+            <div className="dashboard-empty">No history yet</div>
           )}
         </section>
 
@@ -1625,11 +1817,14 @@ function DashboardPanel({
           <div className="upgrade-icon">
             <Crown size={18} aria-hidden="true" />
           </div>
-          <h3>Pro Exam Prep</h3>
-          <p>Practice exams, exportable study packs, and higher daily limits.</p>
+          <h3>Unlock Pro Exam Prep</h3>
+          <p>
+            Generate full exam review packs with cheat sheets, practice exams, answer explanations,
+            PDF export, and higher upload limits.
+          </p>
           <button type="button" onClick={onUpgrade}>
             <Crown size={16} />
-            <span>Upgrade</span>
+            <span>Unlock Pro</span>
           </button>
         </section>
       </div>
@@ -1694,7 +1889,7 @@ function ExamPrepPanel({
     <section className="content-panel exam-prep-panel">
       <div className="content-header">
         <div>
-          <h3>Exam Prep Pack</h3>
+          <h3>Exam Review Pack</h3>
         </div>
         <button type="button" onClick={() => onSelectTool("dashboard")}>
           <LayoutDashboard size={16} />
@@ -1705,7 +1900,7 @@ function ExamPrepPanel({
       <div className="exam-prep-hero">
         <div>
           <span className="eyebrow">{currentSession ? currentSession.title : "Current material"}</span>
-          <h3>{hasMaterial ? "Build a focused review set" : "Add material to start"}</h3>
+          <h3>{hasMaterial ? "Generate your exam review pack" : "Add material to start"}</h3>
           <p>
             {hasMaterial
               ? "Generate the core study assets students need before an exam."
@@ -1801,7 +1996,11 @@ function MistakeNotebookPanel({
           <RenderedContent content={savedTutorReview} />
         </article>
       ) : (
-        <EmptyState icon={BookMarked} title="No reviewed mistakes yet" />
+        <EmptyState
+          icon={BookMarked}
+          title="No mistakes saved yet"
+          description="Missed Practice Quiz questions will appear here automatically."
+        />
       )}
     </section>
   );
@@ -1839,7 +2038,7 @@ function AccessGate({
   const description = isLoading
     ? "Preparing your study workspace."
     : isAccountMode
-      ? "Save your sessions, notes, quizzes, mistakes, and review history to your account."
+      ? "Save your study history, notes, quizzes, mistakes, and review progress to your account."
       : "This beta is protected to control OpenAI usage while testing.";
 
   const panel = (
@@ -1994,7 +2193,8 @@ function AccountSettingsDialog({
     }
   }
 
-  const email = user?.email || "Signed in";
+  const email = user?.email || "";
+  const displayEmail = maskEmail(email) || "Signed in";
   const plan = user?.plan ? `${user.plan.slice(0, 1).toUpperCase()}${user.plan.slice(1)}` : "Free";
 
   return (
@@ -2009,20 +2209,20 @@ function AccountSettingsDialog({
         <div className="account-dialog-copy">
           <span className="eyebrow">Account</span>
           <h2 id="account-settings-title">Account settings</h2>
-          <p>Manage your profile, usage, plan, and saved study data.</p>
+          <p>Manage your profile, usage, plan, and study history.</p>
         </div>
 
         <div className="account-detail-grid">
           <div className="account-detail-card">
             <span>Email</span>
-            <strong>{email}</strong>
+            <strong>{displayEmail}</strong>
           </div>
           <div className="account-detail-card">
             <span>Plan</span>
             <strong>{plan}</strong>
           </div>
           <div className="account-detail-card">
-            <span>Saved sessions</span>
+            <span>History records</span>
             <strong>{sessionsCount}</strong>
           </div>
           <div className="account-detail-card">
@@ -2057,11 +2257,11 @@ function AccountSettingsDialog({
 
         <div className="account-settings-section">
           <h3>Data management</h3>
-          <p>Clear saved sessions from this account when you want to reset the workspace.</p>
+          <p>Clear study history from this account when you want to reset the workspace.</p>
           <div className="account-dialog-actions">
             <button className="secondary-button" type="button" onClick={onClearSessions}>
               <Trash2 size={16} />
-              <span>Clear saved sessions</span>
+              <span>Clear history</span>
             </button>
             <button className="danger-button" type="button" onClick={onSignOut}>
               <XCircle size={16} />
@@ -2069,6 +2269,72 @@ function AccountSettingsDialog({
             </button>
           </div>
         </div>
+      </section>
+    </div>
+  );
+}
+
+function FavoritesDialog({
+  sessions,
+  activeId,
+  onOpen,
+  onToggleFavorite,
+  isFavoriteBusy,
+  onClose,
+}) {
+  function handleBackdropClick(event) {
+    if (event.target === event.currentTarget) {
+      onClose();
+    }
+  }
+
+  return (
+    <div className="modal-backdrop" onMouseDown={handleBackdropClick}>
+      <section className="account-dialog favorites-dialog" role="dialog" aria-modal="true" aria-labelledby="favorites-title">
+        <button className="dialog-close-button" type="button" onClick={onClose} aria-label="Close favorites">
+          <X size={18} />
+        </button>
+        <div className="account-dialog-icon">
+          <Star size={22} fill="currentColor" aria-hidden="true" />
+        </div>
+        <div className="account-dialog-copy">
+          <span className="eyebrow">Study shortcuts</span>
+          <h2 id="favorites-title">Favorites</h2>
+          <p>Keep important study records one click away from your account menu.</p>
+        </div>
+
+        {sessions.length ? (
+          <div className="favorite-list">
+            {sessions.map((session) => {
+              const favoriteBusy = isFavoriteBusy(session.id);
+              return (
+                <div className={session.id === activeId ? "favorite-row active" : "favorite-row"} key={session.id}>
+                  <button className="favorite-row-main" type="button" onClick={() => onOpen(session.id)}>
+                    <strong>{session.title}</strong>
+                    <span>{sessionSummary(session)}</span>
+                  </button>
+                  <button
+                    className="favorite-list-action"
+                    type="button"
+                    onClick={() => onToggleFavorite(session.id, false)}
+                    disabled={favoriteBusy}
+                    title={`Remove ${session.title} from favorites`}
+                    aria-label={`Remove ${session.title} from favorites`}
+                  >
+                    {favoriteBusy ? <Loader2 className="spin" size={15} /> : <Star size={15} fill="currentColor" />}
+                    <span>Remove</span>
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <EmptyState
+            icon={Star}
+            title="No favorites yet"
+            description="Use the star on any history record to save it here."
+          />
+        )}
       </section>
     </div>
   );
@@ -2110,8 +2376,8 @@ function HelpFeedbackDialog({
 
         <div className="help-topic-list">
           <div>
-            <strong>Where are my study sessions saved?</strong>
-            <p>They are saved to your account after you generate a study tool from uploaded or pasted material.</p>
+            <strong>Where is my study history saved?</strong>
+            <p>History records are saved to your account after you generate a study tool from uploaded or pasted material.</p>
           </div>
           <div>
             <strong>Why is Google login not active yet?</strong>
@@ -2282,7 +2548,7 @@ function PrivacyPolicyContent() {
       <section>
         <h3>How we use information</h3>
         <p>
-          We use this information to generate study tools, save sessions to your account, enforce usage
+          We use this information to generate study tools, save study history to your account, enforce usage
           limits, troubleshoot errors, improve product quality, and protect the service from abuse.
         </p>
       </section>
@@ -2297,7 +2563,7 @@ function PrivacyPolicyContent() {
       <section>
         <h3>Data control</h3>
         <p>
-          You can delete individual sessions or clear saved sessions from the app. Some operational logs
+          You can delete individual history records or clear saved history from the app. Some operational logs
           and backups may remain for a limited period for security, debugging, and reliability.
         </p>
       </section>
@@ -2373,23 +2639,50 @@ function Stat({ label, value }) {
   );
 }
 
-function SessionList({ sessions, activeId, onOpen, onDelete, isDeleting }) {
+function SessionList({
+  sessions,
+  activeId,
+  onOpen,
+  onToggleFavorite,
+  onDelete,
+  isDeleting,
+  isFavoriteBusy,
+}) {
   if (!sessions.length) {
-    return <EmptyState icon={LibraryBig} title="No sessions yet" />;
+    return (
+      <EmptyState
+        icon={LibraryBig}
+        title="No history yet"
+        description="Add study material and generate a review pack to save your first record."
+      />
+    );
   }
 
   return (
     <div className="session-list">
       {sessions.map((session) => {
         const deleting = isDeleting(session.id);
+        const favoriteBusy = isFavoriteBusy(session.id);
         return (
           <div className={session.id === activeId ? "session-row active" : "session-row"} key={session.id}>
             <button className="session-open" type="button" onClick={() => onOpen(session.id)}>
               <span className="session-name">{session.title}</span>
-              <span className="session-meta">
-                {session.has_summary ? "Notes" : "Draft"} | {session.has_cheat_sheet ? "Sheet" : "No sheet"} |{" "}
-                {session.flashcard_count} cards | {session.quiz_count} quiz
-              </span>
+              <span className="session-meta">{sessionSummary(session)}</span>
+            </button>
+            <button
+              className={session.is_favorite ? "session-favorite active" : "session-favorite"}
+              type="button"
+              onClick={() => onToggleFavorite(session.id, !session.is_favorite)}
+              disabled={deleting || favoriteBusy}
+              title={session.is_favorite ? `Remove ${session.title} from favorites` : `Add ${session.title} to favorites`}
+              aria-label={session.is_favorite ? `Remove ${session.title} from favorites` : `Add ${session.title} to favorites`}
+              aria-pressed={Boolean(session.is_favorite)}
+            >
+              {favoriteBusy ? (
+                <Loader2 className="spin" size={14} />
+              ) : (
+                <Star size={14} fill={session.is_favorite ? "currentColor" : "none"} />
+              )}
             </button>
             <button
               className="session-delete"
@@ -2408,6 +2701,15 @@ function SessionList({ sessions, activeId, onOpen, onDelete, isDeleting }) {
   );
 }
 
+function sessionSummary(session) {
+  return [
+    formatCount(session.has_summary ? 1 : 0, "note"),
+    formatCount(session.has_cheat_sheet ? 1 : 0, "cheat sheet"),
+    formatCount(session.flashcard_count, "flashcard"),
+    formatCount(session.quiz_count, "quiz question"),
+  ].join(" \u00b7 ");
+}
+
 function SummaryPanel({ summary, isBusy, onGenerate }) {
   return (
     <section className="content-panel">
@@ -2417,7 +2719,11 @@ function SummaryPanel({ summary, isBusy, onGenerate }) {
           <RenderedContent content={summary} />
         </article>
       ) : (
-        <EmptyState icon={FileText} title="No AI notes yet" />
+        <EmptyState
+          icon={FileText}
+          title="No AI notes yet"
+          description="Generate concise notes after adding study material."
+        />
       )}
     </section>
   );
@@ -2432,7 +2738,11 @@ function CheatSheetPanel({ cheatSheet, isBusy, onGenerate }) {
           <RenderedContent content={cheatSheet} />
         </article>
       ) : (
-        <EmptyState icon={ClipboardList} title="No cheat sheet yet. Click Generate." />
+        <EmptyState
+          icon={ClipboardList}
+          title="No cheat sheet yet"
+          description="Generate a focused sheet of formulas, steps, and exam traps."
+        />
       )}
     </section>
   );
@@ -2457,7 +2767,11 @@ function FlashcardsPanel({ flashcards, isBusy, onGenerate }) {
           ))}
         </div>
       ) : (
-        <EmptyState icon={Layers3} title="No flashcards yet" />
+        <EmptyState
+          icon={Layers3}
+          title="No flashcards yet"
+          description="Generate recall cards from the current material."
+        />
       )}
     </section>
   );
@@ -2896,7 +3210,11 @@ function QuizPanel({
           )}
         </>
       ) : (
-        <EmptyState icon={CircleHelp} title="No practice quiz yet" />
+        <EmptyState
+          icon={CircleHelp}
+          title="No practice quiz yet"
+          description="Generate a broad self-check quiz from your study material."
+        />
       )}
     </section>
   );
@@ -2921,7 +3239,11 @@ function ChatPanel({ messages, question, isBusy, onQuestionChange, onSubmit }) {
             </article>
           ))
         ) : (
-          <EmptyState icon={MessageSquareText} title="No messages yet" />
+          <EmptyState
+            icon={MessageSquareText}
+            title="No tutor chats yet"
+            description="Ask a focused question after adding study material."
+          />
         )}
       </div>
       <form className="chat-form" onSubmit={onSubmit}>
@@ -2954,11 +3276,14 @@ function ContentHeader({ title, actionLabel, busy, onAction }) {
   );
 }
 
-function EmptyState({ icon: Icon, title }) {
+function EmptyState({ icon: Icon, title, description }) {
   return (
     <div className="empty-state">
       <Icon size={24} aria-hidden="true" />
-      <span>{title}</span>
+      <div>
+        <span>{title}</span>
+        {description && <p>{description}</p>}
+      </div>
     </div>
   );
 }
@@ -3091,6 +3416,19 @@ function labelForKind(kind) {
     flashcards: "Flashcards",
     quiz: "Practice Quiz",
   }[kind];
+}
+
+function isSessionAssetReady(session, kind) {
+  if (!session) {
+    return false;
+  }
+
+  return {
+    summary: Boolean(session.summary),
+    "cheat-sheet": Boolean(session.cheat_sheet),
+    flashcards: Boolean(session.flashcards?.length),
+    quiz: Boolean(session.quiz?.length),
+  }[kind] ?? false;
 }
 
 function parseSavedDiagnosticReview(value) {

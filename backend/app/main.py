@@ -42,6 +42,7 @@ from backend.app.database import (
     record_ai_usage,
     init_db,
     list_sessions,
+    set_session_favorite,
     update_cheat_sheet,
     update_diagnostic,
     update_diagnostic_review,
@@ -79,6 +80,7 @@ from backend.app.schemas import (
     QuizReviewResult,
     StudySession,
     StudySessionCreate,
+    StudySessionFavoriteUpdate,
     StudySessionListItem,
     SummaryResponse,
     TargetedPracticeResponse,
@@ -316,6 +318,22 @@ def api_delete_session(
     if not delete_session(session_id, owner_id=visitor_id):
         raise HTTPException(status_code=404, detail="Study session not found")
     return {"deleted": True}
+
+
+@app.post("/api/study/sessions/{session_id}/favorite", response_model=StudySession)
+def api_set_session_favorite(
+    session_id: str,
+    payload: StudySessionFavoriteUpdate,
+    visitor_id: str = Depends(require_access),
+) -> StudySession:
+    session = set_session_favorite(
+        session_id=session_id,
+        is_favorite=payload.is_favorite,
+        owner_id=visitor_id,
+    )
+    if session is None:
+        raise HTTPException(status_code=404, detail="Study session not found")
+    return session
 
 
 @app.post("/api/study/sessions/{session_id}/summary", response_model=SummaryResponse)

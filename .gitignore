@@ -3,6 +3,7 @@
 !.env.example
 !.env.production.example
 OpenAI Key.txt
+OAuth 2.0 Client ID.txt
 *.pyc
 __pycache__/
 .venv/
@@ -10,6 +11,7 @@ venv/
 data/
 *.log
 .pytest_cache/
+.tmp/
 frontend/node_modules/
 frontend/dist/
 deploy-artifacts/
