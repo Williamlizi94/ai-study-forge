@@ -54,6 +54,7 @@ const tabs = [
 function App() {
   const fileInputRef = React.useRef(null);
   const sourceTextareaRef = React.useRef(null);
+  const studyMaterialPanelRef = React.useRef(null);
   const accountMenuRef = React.useRef(null);
   const [apiOnline, setApiOnline] = React.useState(false);
   const [currentSession, setCurrentSession] = React.useState(null);
@@ -72,6 +73,7 @@ function App() {
   const [targetedPracticeAnswers, setTargetedPracticeAnswers] = React.useState({});
   const [targetedPracticeReview, setTargetedPracticeReview] = React.useState(null);
   const [notice, setNotice] = React.useState(null);
+  const [highlightStudyMaterial, setHighlightStudyMaterial] = React.useState(false);
   const [clearConfirmOpen, setClearConfirmOpen] = React.useState(false);
   const [upgradeDialogOpen, setUpgradeDialogOpen] = React.useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = React.useState(false);
@@ -213,12 +215,18 @@ function App() {
   }
 
   function focusStudyMaterial() {
-    if (sourceTextareaRef.current) {
-      sourceTextareaRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
-      sourceTextareaRef.current.focus();
-      return;
-    }
-    fileInputRef.current?.click();
+    const target = studyMaterialPanelRef.current ?? sourceTextareaRef.current ?? fileInputRef.current;
+    target?.scrollIntoView({ behavior: "smooth", block: "center" });
+    setHighlightStudyMaterial(true);
+    window.setTimeout(() => setHighlightStudyMaterial(false), 1800);
+
+    window.setTimeout(() => {
+      if (sourceTextareaRef.current) {
+        sourceTextareaRef.current.focus();
+        return;
+      }
+      fileInputRef.current?.focus?.();
+    }, 260);
   }
 
   function resetWorkspaceDraft() {
@@ -633,6 +641,12 @@ function App() {
   }
 
   async function generateExamReviewPack() {
+    if (sourceText.trim().length < 50) {
+      focusStudyMaterial();
+      showNotice("Please add study material first to generate an exam review pack.", "error");
+      return;
+    }
+
     setBusy("exam-pack", true);
     try {
       let session = await ensureActiveSession();
@@ -918,7 +932,10 @@ function App() {
       ) : (
       <main className="shell">
         <aside className="sidebar" aria-label="Study material and history">
-          <section className="tool-panel">
+          <section
+            ref={studyMaterialPanelRef}
+            className={highlightStudyMaterial ? "tool-panel study-material-panel is-highlighted" : "tool-panel study-material-panel"}
+          >
             <PanelHeader icon={Brain} title="Step 1: Add Study Material" />
             <p className="panel-helper">
               Upload lecture slides, PDFs, notes, homework solutions, or paste text from course materials.
@@ -1732,14 +1749,24 @@ function DashboardPanel({
           )}
         </div>
         <div className="dashboard-hero-actions">
-          <button type="button" onClick={onGeneratePack} disabled={!hasMaterial || isGeneratingPack}>
+          <button
+            type="button"
+            onClick={onGeneratePack}
+            disabled={!hasMaterial || isGeneratingPack}
+            title={!hasMaterial ? "Upload material first to generate your exam review pack." : undefined}
+          >
             {isGeneratingPack ? <Loader2 className="spin" size={16} /> : <GraduationCap size={16} />}
             <span>{isGeneratingPack ? "Generating Pack" : "Generate Exam Review Pack"}</span>
           </button>
           {!hasMaterial && (
-            <button className="secondary-button" type="button" onClick={onUploadFocus}>
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={onUploadFocus}
+              title="Go to Step 1: Add Study Material"
+            >
               <Upload size={16} />
-              <span>Upload Study Material</span>
+              <span>Add Study Material</span>
             </button>
           )}
         </div>

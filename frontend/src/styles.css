@@ -479,6 +479,23 @@ button:disabled {
   padding: 16px;
 }
 
+.study-material-panel {
+  scroll-margin-top: 18px;
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.study-material-panel.is-highlighted {
+  background: #fbfdfc;
+  border-color: var(--teal);
+  box-shadow: 0 0 0 3px rgba(37, 111, 97, 0.14), var(--shadow);
+}
+
+.study-material-panel.is-highlighted .file-picker {
+  background: rgba(37, 111, 97, 0.06);
+  border-color: var(--teal);
+  color: var(--teal);
+}
+
 .panel-heading {
   align-items: center;
   color: var(--teal);
