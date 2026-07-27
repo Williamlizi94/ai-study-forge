@@ -478,6 +478,15 @@ function App() {
     try {
       const parsed = await apiRequest("/study/documents/parse", {
         method: "POST",
+        headers: (() => {
+          const token =
+            (typeof authToken !== "undefined" && authToken) ||
+            localStorage.getItem("authToken") ||
+            localStorage.getItem("auth_token") ||
+            localStorage.getItem("aiStudyAuthToken") ||
+            localStorage.getItem("ai_study_auth_token");
+          return token ? { Authorization: `Bearer ${token}` } : {};
+        })(),
         body: formData,
       });
       setTitle(parsed.title || titleFromFilename(uploadFile.name));
@@ -3165,12 +3174,11 @@ async function apiRequest(path, options = {}) {
   const isFormData = options.body instanceof FormData;
   const { skipAuth, headers = {}, ...requestOptions } = options;
   const token = skipAuth ? "" : localStorage.getItem(AUTH_TOKEN_KEY);
-  const requestHeaders = isFormData
-    ? { ...headers }
-    : {
-        "Content-Type": "application/json",
-        ...headers,
-      };
+  const requestHeaders = {
+    ...(isFormData ? {} : { "Content-Type": "application/json" }),
+    ...headers,
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
 
   if (token) {
     requestHeaders.Authorization = `Bearer ${token}`;
