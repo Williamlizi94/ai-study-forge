@@ -84,7 +84,8 @@ jobs:
           }
           EOF
           cd deploy-artifacts
-          zip ai-study-assistant-eb.zip Dockerrun.aws.json
+          cp -R ../.platform .platform
+          zip -r ai-study-assistant-eb.zip Dockerrun.aws.json .platform
 
       - name: Deploy Elastic Beanstalk version
         id: eb
