@@ -13,6 +13,7 @@ import {
   ArrowRight,
   BookMarked,
   Crown,
+  Download,
   FileText,
   GraduationCap,
   Layers3,
@@ -2510,11 +2511,22 @@ function sessionSummary(session) {
 }
 
 function SummaryPanel({ summary, isBusy, onGenerate }) {
+  const outputRef = React.useRef(null);
+  const [isExporting, setIsExporting] = React.useState(false);
+
   return (
     <section className="content-panel">
-      <ContentHeader title="AI Notes" actionLabel="Generate" busy={isBusy} onAction={onGenerate} />
+      <ContentHeader
+        title="AI Notes"
+        actionLabel="Generate"
+        busy={isBusy}
+        onAction={onGenerate}
+        onExport={() => exportContentAsPdf(outputRef.current, "AI Notes", setIsExporting)}
+        exportDisabled={!summary}
+        isExporting={isExporting}
+      />
       {summary ? (
-        <article className="text-output">
+        <article className="text-output" ref={outputRef}>
           <RenderedContent content={summary} />
         </article>
       ) : (
@@ -2529,11 +2541,22 @@ function SummaryPanel({ summary, isBusy, onGenerate }) {
 }
 
 function CheatSheetPanel({ cheatSheet, isBusy, onGenerate }) {
+  const outputRef = React.useRef(null);
+  const [isExporting, setIsExporting] = React.useState(false);
+
   return (
     <section className="content-panel">
-      <ContentHeader title="Cheat Sheet" actionLabel="Generate" busy={isBusy} onAction={onGenerate} />
+      <ContentHeader
+        title="Cheat Sheet"
+        actionLabel="Generate"
+        busy={isBusy}
+        onAction={onGenerate}
+        onExport={() => exportContentAsPdf(outputRef.current, "Cheat Sheet", setIsExporting)}
+        exportDisabled={!cheatSheet}
+        isExporting={isExporting}
+      />
       {cheatSheet ? (
-        <article className="text-output cheat-sheet-output">
+        <article className="text-output cheat-sheet-output" ref={outputRef}>
           <RenderedContent content={cheatSheet} />
         </article>
       ) : (
@@ -3061,18 +3084,92 @@ function ChatPanel({ messages, question, isBusy, onQuestionChange, onSubmit }) {
   );
 }
 
-function ContentHeader({ title, actionLabel, busy, onAction }) {
+function ContentHeader({
+  title,
+  actionLabel,
+  busy,
+  onAction,
+  onExport,
+  exportDisabled = false,
+  isExporting = false,
+}) {
   return (
     <div className="content-header">
       <div>
         <h3>{title}</h3>
       </div>
-      <button type="button" onClick={onAction} disabled={busy}>
-        {busy ? <Loader2 className="spin" size={16} /> : <Sparkles size={16} />}
-        <span>{actionLabel}</span>
-      </button>
+      <div className="header-actions">
+        <button type="button" onClick={onAction} disabled={busy}>
+          {busy ? <Loader2 className="spin" size={16} /> : <Sparkles size={16} />}
+          <span>{actionLabel}</span>
+        </button>
+        {onExport && (
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={onExport}
+            disabled={exportDisabled || isExporting}
+          >
+            {isExporting ? <Loader2 className="spin" size={16} /> : <Download size={16} />}
+            <span>{isExporting ? "Exporting" : "Export PDF"}</span>
+          </button>
+        )}
+      </div>
     </div>
   );
+}
+
+async function exportContentAsPdf(sourceElement, title, setIsExporting) {
+  if (!sourceElement) {
+    return;
+  }
+
+  setIsExporting(true);
+  const exportSurface = document.createElement("div");
+  exportSurface.className = "pdf-export-surface";
+  const heading = document.createElement("h1");
+  heading.textContent = title;
+  exportSurface.append(heading, sourceElement.cloneNode(true));
+  document.body.appendChild(exportSurface);
+
+  try {
+    const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+      import("html2canvas"),
+      import("jspdf"),
+    ]);
+    const canvas = await html2canvas(exportSurface, {
+      backgroundColor: "#ffffff",
+      scale: 2,
+      useCORS: true,
+      logging: false,
+    });
+    const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const margin = 12;
+    const imageWidth = pageWidth - margin * 2;
+    const imageHeight = (canvas.height * imageWidth) / canvas.width;
+    const imageData = canvas.toDataURL("image/png");
+    const printableHeight = pageHeight - margin * 2;
+    let offset = 0;
+
+    while (offset < imageHeight) {
+      if (offset > 0) {
+        pdf.addPage();
+      }
+      pdf.addImage(imageData, "PNG", margin, margin - offset, imageWidth, imageHeight);
+      offset += printableHeight;
+    }
+
+    const filename = `${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.pdf`;
+    pdf.save(filename);
+  } catch (error) {
+    console.error("PDF export failed", error);
+    window.alert("The PDF could not be exported. Please try again.");
+  } finally {
+    exportSurface.remove();
+    setIsExporting(false);
+  }
 }
 
 function EmptyState({ icon: Icon, title, description }) {
