@@ -202,3 +202,24 @@ def test_free_plan_blocks_the_sixth_monthly_generation(test_client):
     detail = blocked.json()["detail"]
     assert detail["code"] == "monthly_generation_limit_reached"
     assert detail["quota"]["remaining"] == 0
+
+
+def test_internal_test_account_bypasses_monthly_generation_limit(test_client, monkeypatch):
+    from backend.app.config import settings
+
+    email = "internal-test@example.com"
+    monkeypatch.setattr(settings, "internal_test_emails", {email})
+    token, _ = register_user(test_client, email)
+    session = create_study_session(test_client, token, "Internal Test Source")
+    headers = auth_headers(token)
+    session_id = session["id"]
+
+    for kind in ["summary", "cheat-sheet", "flashcards", "quiz", "diagnostic", "targeted-practice"]:
+        response = test_client.post(f"/api/study/sessions/{session_id}/{kind}", headers=headers)
+        assert response.status_code == 200, response.text
+
+    quota = test_client.get("/api/account/quota", headers=headers)
+    assert quota.status_code == 200
+    assert quota.json()["plan"] == "pro"
+    assert quota.json()["limit"] == 0
+    assert quota.json()["remaining"] == -1

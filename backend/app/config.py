@@ -40,6 +40,11 @@ class Settings:
         self.google_oauth_enabled = bool(self.google_client_id and self.google_client_secret)
         self.mock_ai = _env_bool("MOCK_AI", False)
         self.free_monthly_ai_limit = int(os.getenv("FREE_MONTHLY_AI_LIMIT", "5"))
+        self.internal_test_emails = {
+            email.strip().casefold()
+            for email in os.getenv("INTERNAL_TEST_EMAILS", "").split(",")
+            if email.strip()
+        }
         self.generation_duplicate_window_seconds = int(
             os.getenv("GENERATION_DUPLICATE_WINDOW_SECONDS", "10")
         )

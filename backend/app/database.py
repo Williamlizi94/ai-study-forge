@@ -764,7 +764,12 @@ def get_ai_usage(visitor_id: str) -> dict[str, int]:
 
 def record_ai_usage(visitor_id: str) -> dict[str, int]:
     usage = get_ai_usage(visitor_id)
-    if usage["user_limit"] > 0 and usage["user_count"] >= usage["user_limit"]:
+    user = get_user_by_id(visitor_id)
+    if (
+        not _is_internal_test_user(user)
+        and usage["user_limit"] > 0
+        and usage["user_count"] >= usage["user_limit"]
+    ):
         raise UsageLimitError("Daily AI generation limit reached for this visitor.", usage)
     if usage["global_limit"] > 0 and usage["global_count"] >= usage["global_limit"]:
         raise UsageLimitError("Daily site-wide AI generation limit reached.", usage)
@@ -782,9 +787,19 @@ def record_ai_usage(visitor_id: str) -> dict[str, int]:
     return get_ai_usage(visitor_id)
 
 
+def _is_internal_test_user(user: dict[str, str] | None) -> bool:
+    return bool(user and user["email"].casefold() in settings.internal_test_emails)
+
+
+def _effective_plan(user: dict[str, str] | None) -> str:
+    if _is_internal_test_user(user):
+        return "pro"
+    return user["plan"] if user else "free"
+
+
 def get_generation_quota(owner_id: str) -> dict[str, Any]:
     user = get_user_by_id(owner_id)
-    plan = user["plan"] if user else "free"
+    plan = _effective_plan(user)
     limit = settings.free_monthly_ai_limit if plan == "free" else 0
     month_start, next_month = _utc_month_bounds()
     with get_connection() as connection:
@@ -864,7 +879,7 @@ def begin_generation(owner_id: str, session_id: str | None, feature: str, model:
             raise GenerationConflictError("This generation was just submitted. Please wait a moment.")
 
         user = get_user_by_id(owner_id, connection=connection)
-        plan = user["plan"] if user else "free"
+        plan = _effective_plan(user)
         limit = settings.free_monthly_ai_limit if plan == "free" else 0
         reserved = _execute(
             connection,
