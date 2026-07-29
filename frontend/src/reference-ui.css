@@ -1409,3 +1409,22 @@ body,
     margin-bottom: 132px;
   }
 }
+
+/* Recent file/activity rows are secondary actions, not primary CTAs. */
+.dashboard-bottom-grid .compact-list-card > button:not(.list-footer) {
+  background: #ffffff !important;
+  color: #233047 !important;
+}
+
+.dashboard-bottom-grid .compact-list-card > button:not(.list-footer):hover {
+  background: #f4fbf7 !important;
+}
+
+.dashboard-bottom-grid .compact-list-card > button:not(.list-footer) strong {
+  color: #233047 !important;
+}
+
+.dashboard-bottom-grid .compact-list-card > button:not(.list-footer) small,
+.dashboard-bottom-grid .compact-list-card > button:not(.list-footer) time {
+  color: #728096 !important;
+}
