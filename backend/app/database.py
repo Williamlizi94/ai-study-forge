@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -25,6 +25,10 @@ class UsageLimitError(Exception):
     def __init__(self, message: str, usage: dict[str, int]) -> None:
         super().__init__(message)
         self.usage = usage
+
+
+class GenerationConflictError(Exception):
+    pass
 
 
 class DuplicateUserError(Exception):
@@ -139,6 +143,22 @@ def init_db() -> None:
             )
             """
         )
+        _execute(
+            connection,
+            """
+            CREATE TABLE IF NOT EXISTS generation_events (
+                id TEXT PRIMARY KEY,
+                owner_id TEXT NOT NULL,
+                session_id TEXT,
+                feature TEXT NOT NULL,
+                model TEXT NOT NULL,
+                status TEXT NOT NULL,
+                error_message TEXT,
+                created_at TEXT NOT NULL,
+                completed_at TEXT
+            )
+            """
+        )
         _ensure_column(connection, "usage_events", "owner_id", "TEXT")
         _execute(
             connection,
@@ -185,6 +205,21 @@ def init_db() -> None:
             """
             CREATE INDEX IF NOT EXISTS idx_usage_events_visitor_type_created
             ON usage_events (visitor_id, event_type, created_at)
+            """
+        )
+        _execute(
+            connection,
+            """
+            CREATE INDEX IF NOT EXISTS idx_generation_events_owner_created
+            ON generation_events (owner_id, created_at)
+            """
+        )
+        _execute(
+            connection,
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_generation_events_one_active_per_owner
+            ON generation_events (owner_id)
+            WHERE status = 'in_progress'
             """
         )
         _execute(
@@ -747,6 +782,164 @@ def record_ai_usage(visitor_id: str) -> dict[str, int]:
     return get_ai_usage(visitor_id)
 
 
+def get_generation_quota(owner_id: str) -> dict[str, Any]:
+    user = get_user_by_id(owner_id)
+    plan = user["plan"] if user else "free"
+    limit = settings.free_monthly_ai_limit if plan == "free" else 0
+    month_start, next_month = _utc_month_bounds()
+    with get_connection() as connection:
+        used = _execute(
+            connection,
+            """
+            SELECT COUNT(*) AS count
+            FROM generation_events
+            WHERE owner_id = ?
+              AND status = 'succeeded'
+              AND created_at >= ?
+              AND created_at < ?
+            """,
+            (owner_id, month_start, next_month),
+        ).fetchone()["count"]
+    return {
+        "plan": plan,
+        "period": "monthly",
+        "limit": limit,
+        "used": int(used),
+        "remaining": max(0, limit - int(used)) if limit > 0 else -1,
+        "resets_at": next_month,
+        "upgrade_available": plan == "free",
+    }
+
+
+def begin_generation(owner_id: str, session_id: str | None, feature: str, model: str) -> str:
+    now = datetime.now(timezone.utc)
+    now_text = now.isoformat()
+    stale_before = (now - timedelta(minutes=settings.generation_stale_minutes)).isoformat()
+    duplicate_after = (
+        now - timedelta(seconds=settings.generation_duplicate_window_seconds)
+    ).isoformat()
+    month_start, next_month = _utc_month_bounds(now)
+    event_id = str(uuid.uuid4())
+
+    with get_connection() as connection:
+        if using_postgres():
+            _execute(connection, "SELECT id FROM users WHERE id = ? FOR UPDATE", (owner_id,))
+        else:
+            _execute(connection, "BEGIN IMMEDIATE")
+
+        _execute(
+            connection,
+            """
+            UPDATE generation_events
+            SET status = 'failed',
+                error_message = 'Generation timed out before completion.',
+                completed_at = ?
+            WHERE owner_id = ? AND status = 'in_progress' AND created_at < ?
+            """,
+            (now_text, owner_id, stale_before),
+        )
+
+        active = _execute(
+            connection,
+            """
+            SELECT id FROM generation_events
+            WHERE owner_id = ? AND status = 'in_progress'
+            LIMIT 1
+            """,
+            (owner_id,),
+        ).fetchone()
+        if active is not None:
+            raise GenerationConflictError("A generation is already in progress. Please wait.")
+
+        duplicate = _execute(
+            connection,
+            """
+            SELECT id FROM generation_events
+            WHERE owner_id = ? AND session_id = ? AND feature = ? AND created_at >= ?
+            LIMIT 1
+            """,
+            (owner_id, session_id, feature, duplicate_after),
+        ).fetchone()
+        if duplicate is not None:
+            raise GenerationConflictError("This generation was just submitted. Please wait a moment.")
+
+        user = get_user_by_id(owner_id, connection=connection)
+        plan = user["plan"] if user else "free"
+        limit = settings.free_monthly_ai_limit if plan == "free" else 0
+        reserved = _execute(
+            connection,
+            """
+            SELECT COUNT(*) AS count
+            FROM generation_events
+            WHERE owner_id = ?
+              AND status IN ('succeeded', 'in_progress')
+              AND created_at >= ?
+              AND created_at < ?
+            """,
+            (owner_id, month_start, next_month),
+        ).fetchone()["count"]
+        if limit > 0 and int(reserved) >= limit:
+            usage = {
+                "plan": plan,
+                "limit": limit,
+                "used": int(reserved),
+                "remaining": 0,
+                "resets_at": next_month,
+            }
+            raise UsageLimitError(
+                "Monthly generation limit reached. Upgrade to continue generating.",
+                usage,
+            )
+
+        _execute(
+            connection,
+            """
+            INSERT INTO generation_events (
+                id, owner_id, session_id, feature, model, status, created_at
+            )
+            VALUES (?, ?, ?, ?, ?, 'in_progress', ?)
+            """,
+            (event_id, owner_id, session_id, feature, model, now_text),
+        )
+    return event_id
+
+
+def finish_generation(event_id: str, status: str, error_message: str | None = None) -> None:
+    if status not in {"succeeded", "failed"}:
+        raise ValueError("Invalid generation status")
+    with get_connection() as connection:
+        _execute(
+            connection,
+            """
+            UPDATE generation_events
+            SET status = ?, error_message = ?, completed_at = ?
+            WHERE id = ? AND status = 'in_progress'
+            """,
+            (status, error_message[:500] if error_message else None, utc_now(), event_id),
+        )
+
+
+def get_user_by_id(user_id: str, connection: Any | None = None) -> dict[str, str] | None:
+    if connection is not None:
+        row = _execute(connection, "SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+    else:
+        with get_connection() as own_connection:
+            row = _execute(
+                own_connection, "SELECT * FROM users WHERE id = ?", (user_id,)
+            ).fetchone()
+    return _row_to_user(row) if row is not None else None
+
+
 def _utc_day_start() -> str:
     now = datetime.now(timezone.utc)
     return now.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+
+
+def _utc_month_bounds(now: datetime | None = None) -> tuple[str, str]:
+    current = now or datetime.now(timezone.utc)
+    start = current.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    if start.month == 12:
+        end = start.replace(year=start.year + 1, month=1)
+    else:
+        end = start.replace(month=start.month + 1)
+    return start.isoformat(), end.isoformat()

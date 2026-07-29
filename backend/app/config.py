@@ -39,7 +39,12 @@ class Settings:
         self.google_redirect_uri = os.getenv("GOOGLE_REDIRECT_URI", "").strip()
         self.google_oauth_enabled = bool(self.google_client_id and self.google_client_secret)
         self.mock_ai = _env_bool("MOCK_AI", False)
-        self.per_user_daily_ai_limit = int(os.getenv("PER_USER_DAILY_AI_LIMIT", "20"))
+        self.free_monthly_ai_limit = int(os.getenv("FREE_MONTHLY_AI_LIMIT", "5"))
+        self.generation_duplicate_window_seconds = int(
+            os.getenv("GENERATION_DUPLICATE_WINDOW_SECONDS", "10")
+        )
+        self.generation_stale_minutes = int(os.getenv("GENERATION_STALE_MINUTES", "15"))
+        self.per_user_daily_ai_limit = int(os.getenv("PER_USER_DAILY_AI_LIMIT", "0"))
         self.global_daily_ai_limit = int(os.getenv("GLOBAL_DAILY_AI_LIMIT", "100"))
         self.database_url = os.getenv("DATABASE_URL", "").strip()
         database_path = Path(os.getenv("DATABASE_PATH", "data/study_assistant.db"))

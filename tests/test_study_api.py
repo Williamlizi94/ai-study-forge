@@ -102,7 +102,7 @@ def test_favorites_are_owner_scoped(test_client):
 
 
 def test_mock_generation_and_mistake_flow(test_client):
-    token, _ = register_user(test_client, "study-flow@example.com")
+    token, user = register_user(test_client, "study-flow@example.com")
     session = create_study_session(test_client, token, "Exam Review Source")
     headers = auth_headers(token)
     session_id = session["id"]
@@ -157,3 +157,48 @@ def test_mock_generation_and_mistake_flow(test_client):
     assert chat.status_code == 200, chat.text
     assert chat.json()["answer"]
     assert len(chat.json()["session"]["chat_messages"]) == 2
+
+    quota = test_client.get("/api/account/quota", headers=headers)
+    assert quota.status_code == 200
+    assert quota.json()["used"] == 5
+    assert quota.json()["remaining"] == 0
+
+    from backend.app.database import get_connection
+
+    with get_connection() as connection:
+        events = connection.execute(
+            """
+            SELECT owner_id, feature, model, status, created_at, completed_at
+            FROM generation_events
+            WHERE owner_id = ?
+            ORDER BY created_at
+            """,
+            (user["id"],),
+        ).fetchall()
+    assert len(events) == 5
+    assert {event["model"] for event in events} == {"test-model"}
+    assert {event["status"] for event in events} == {"succeeded"}
+    assert all(event["created_at"] and event["completed_at"] for event in events)
+
+
+def test_free_plan_blocks_the_sixth_monthly_generation(test_client):
+    token, _ = register_user(test_client, "quota@example.com")
+    session = create_study_session(test_client, token, "Monthly Quota Source")
+    headers = auth_headers(token)
+    session_id = session["id"]
+
+    for kind in ["summary", "cheat-sheet", "flashcards", "quiz", "diagnostic"]:
+        response = test_client.post(
+            f"/api/study/sessions/{session_id}/{kind}",
+            headers=headers,
+        )
+        assert response.status_code == 200, response.text
+
+    blocked = test_client.post(
+        f"/api/study/sessions/{session_id}/targeted-practice",
+        headers=headers,
+    )
+    assert blocked.status_code == 429
+    detail = blocked.json()["detail"]
+    assert detail["code"] == "monthly_generation_limit_reached"
+    assert detail["quota"]["remaining"] == 0

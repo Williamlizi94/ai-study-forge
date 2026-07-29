@@ -4,6 +4,7 @@ import json
 import secrets
 import urllib.parse
 import urllib.request
+from functools import wraps
 from pathlib import Path
 from typing import Any
 
@@ -33,13 +34,16 @@ from backend.app.database import (
     create_feedback,
     create_session,
     create_user,
+    begin_generation,
     delete_all_sessions,
     delete_session,
     DuplicateUserError,
+    finish_generation,
+    GenerationConflictError,
+    get_generation_quota,
     get_session,
     get_or_create_google_user,
     get_user_by_email,
-    record_ai_usage,
     init_db,
     list_sessions,
     set_session_favorite,
@@ -72,6 +76,7 @@ from backend.app.schemas import (
     FeedbackRequest,
     FeedbackResponse,
     FlashcardsResponse,
+    GenerationQuota,
     ParsedDocumentResponse,
     QuizResponse,
     QuizReviewIssue,
@@ -109,6 +114,49 @@ if FRONTEND_ASSETS_DIR.exists():
     app.mount("/assets", StaticFiles(directory=FRONTEND_ASSETS_DIR), name="assets")
 
 
+def _tracked_generation(feature: str):
+    def decorator(endpoint):
+        @wraps(endpoint)
+        def wrapper(*args, **kwargs):
+            visitor_id = kwargs.get("visitor_id")
+            session_id = kwargs.get("session_id")
+            if not visitor_id:
+                raise HTTPException(status_code=401, detail="Authentication is required.")
+            try:
+                event_id = begin_generation(
+                    owner_id=visitor_id,
+                    session_id=session_id,
+                    feature=feature,
+                    model=settings.openai_model,
+                )
+            except UsageLimitError as exc:
+                raise HTTPException(
+                    status_code=429,
+                    detail={
+                        "code": "monthly_generation_limit_reached",
+                        "message": str(exc),
+                        "quota": exc.usage,
+                    },
+                ) from exc
+            except GenerationConflictError as exc:
+                raise HTTPException(
+                    status_code=409,
+                    detail={"code": "generation_conflict", "message": str(exc)},
+                ) from exc
+
+            try:
+                result = endpoint(*args, **kwargs)
+            except Exception as exc:
+                finish_generation(event_id, "failed", str(exc))
+                raise
+            finish_generation(event_id, "succeeded")
+            return result
+
+        return wrapper
+
+    return decorator
+
+
 @app.on_event("startup")
 def on_startup() -> None:
     init_db()
@@ -135,6 +183,7 @@ def api_auth_status() -> AuthStatus:
         google_auth_enabled=settings.google_oauth_enabled,
         per_user_daily_ai_limit=settings.per_user_daily_ai_limit,
         global_daily_ai_limit=settings.global_daily_ai_limit,
+        free_monthly_ai_limit=settings.free_monthly_ai_limit,
     )
 
 
@@ -251,6 +300,11 @@ def api_create_feedback(
     return FeedbackResponse(saved=True)
 
 
+@app.get("/api/account/quota", response_model=GenerationQuota)
+def api_generation_quota(visitor_id: str = Depends(require_access)) -> dict[str, Any]:
+    return get_generation_quota(visitor_id)
+
+
 @app.get("/api/study/sessions", response_model=list[StudySessionListItem])
 def api_list_sessions(visitor_id: str = Depends(require_access)) -> list[dict]:
     return list_sessions(owner_id=visitor_id)
@@ -337,12 +391,12 @@ def api_set_session_favorite(
 
 
 @app.post("/api/study/sessions/{session_id}/summary", response_model=SummaryResponse)
+@_tracked_generation("summary")
 def api_generate_summary(
     session_id: str,
     visitor_id: str = Depends(require_access),
 ) -> SummaryResponse:
     session = _require_session(session_id, visitor_id)
-    _record_ai_request(visitor_id)
     try:
         summary = ai_service.generate_summary(session.source_text)
         updated = update_summary(session.id, summary)
@@ -363,12 +417,12 @@ def api_generate_summary(
 
 
 @app.post("/api/study/sessions/{session_id}/cheat-sheet", response_model=CheatSheetResponse)
+@_tracked_generation("cheat-sheet")
 def api_generate_cheat_sheet(
     session_id: str,
     visitor_id: str = Depends(require_access),
 ) -> CheatSheetResponse:
     session = _require_session(session_id, visitor_id)
-    _record_ai_request(visitor_id)
     try:
         cheat_sheet = ai_service.generate_cheat_sheet(session.source_text)
         updated = update_cheat_sheet(session.id, cheat_sheet)
@@ -389,12 +443,12 @@ def api_generate_cheat_sheet(
 
 
 @app.post("/api/study/sessions/{session_id}/flashcards", response_model=FlashcardsResponse)
+@_tracked_generation("flashcards")
 def api_generate_flashcards(
     session_id: str,
     visitor_id: str = Depends(require_access),
 ) -> FlashcardsResponse:
     session = _require_session(session_id, visitor_id)
-    _record_ai_request(visitor_id)
     try:
         flashcards = ai_service.generate_flashcards(session.source_text)
         updated = update_flashcards(session.id, flashcards)
@@ -417,12 +471,12 @@ def api_generate_flashcards(
 
 
 @app.post("/api/study/sessions/{session_id}/quiz", response_model=QuizResponse)
+@_tracked_generation("quiz")
 def api_generate_quiz(
     session_id: str,
     visitor_id: str = Depends(require_access),
 ) -> QuizResponse:
     session = _require_session(session_id, visitor_id)
-    _record_ai_request(visitor_id)
     try:
         questions = ai_service.generate_quiz(session.source_text)
         updated = update_quiz(session.id, questions)
@@ -445,6 +499,7 @@ def api_generate_quiz(
 
 
 @app.post("/api/study/sessions/{session_id}/quiz/review", response_model=QuizReviewResponse)
+@_tracked_generation("quiz-review")
 def api_review_quiz(
     session_id: str,
     payload: QuizReviewRequest,
@@ -474,7 +529,6 @@ def api_review_quiz(
                 )
             )
 
-    _record_ai_request(visitor_id)
     try:
         tutor_explanation = ai_service.explain_quiz_mistakes(
             session.source_text,
@@ -547,12 +601,12 @@ def api_save_quiz_mistakes(
 
 
 @app.post("/api/study/sessions/{session_id}/diagnostic", response_model=DiagnosticResponse)
+@_tracked_generation("diagnostic")
 def api_generate_diagnostic(
     session_id: str,
     visitor_id: str = Depends(require_access),
 ) -> DiagnosticResponse:
     session = _require_session(session_id, visitor_id)
-    _record_ai_request(visitor_id)
     try:
         questions = ai_service.generate_diagnostic(session.source_text)
         updated = update_diagnostic(session.id, questions)
@@ -578,6 +632,7 @@ def api_generate_diagnostic(
     "/api/study/sessions/{session_id}/diagnostic/review",
     response_model=DiagnosticReviewResponse,
 )
+@_tracked_generation("diagnostic-review")
 def api_review_diagnostic(
     session_id: str,
     payload: DiagnosticReviewRequest,
@@ -618,7 +673,6 @@ def api_review_diagnostic(
     total = len(session.diagnostic)
     score_percent = round((correct / total) * 100) if total else 0
 
-    _record_ai_request(visitor_id)
     try:
         report = ai_service.generate_diagnostic_report(
             source_text=session.source_text,
@@ -662,13 +716,13 @@ def api_review_diagnostic(
     "/api/study/sessions/{session_id}/targeted-practice",
     response_model=TargetedPracticeResponse,
 )
+@_tracked_generation("targeted-practice")
 def api_generate_targeted_practice(
     session_id: str,
     visitor_id: str = Depends(require_access),
 ) -> TargetedPracticeResponse:
     session = _require_session(session_id, visitor_id)
     weak_topics = _weak_topics_for_session(session)
-    _record_ai_request(visitor_id)
     try:
         questions = ai_service.generate_targeted_practice(session.source_text, weak_topics)
         updated = update_targeted_practice(session.id, questions)
@@ -757,6 +811,7 @@ def api_review_targeted_practice(
 
 
 @app.post("/api/study/sessions/{session_id}/chat", response_model=ChatResponse)
+@_tracked_generation("chat")
 def api_chat(
     session_id: str,
     payload: ChatRequest,
@@ -764,7 +819,6 @@ def api_chat(
 ) -> ChatResponse:
     session = _require_session(session_id, visitor_id)
     question = payload.question.strip()
-    _record_ai_request(visitor_id)
     try:
         answer = ai_service.answer_question(
             source_text=session.source_text,
@@ -874,15 +928,6 @@ def _auth_redirect_error(message: str) -> RedirectResponse:
 def _clear_google_oauth_cookie(response: RedirectResponse) -> RedirectResponse:
     response.delete_cookie(GOOGLE_OAUTH_STATE_COOKIE)
     return response
-
-
-def _record_ai_request(visitor_id: str) -> None:
-    if settings.mock_ai:
-        return
-    try:
-        record_ai_usage(visitor_id)
-    except UsageLimitError as exc:
-        raise HTTPException(status_code=429, detail=str(exc)) from exc
 
 
 def _validate_source_length(source_text: str) -> None:

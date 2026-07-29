@@ -1317,6 +1317,49 @@ button:not(.icon-button):not(.session-open):not(.session-favorite):not(.session-
   gap: 16px;
 }
 
+.quota-card {
+  align-items: center;
+  background: rgba(37, 111, 97, 0.06);
+  border: 1px solid rgba(37, 111, 97, 0.2);
+  border-radius: 8px;
+  display: grid;
+  gap: 10px 16px;
+  grid-template-columns: minmax(220px, 1fr) minmax(160px, 0.65fr) auto;
+  padding: 14px;
+}
+
+.quota-card.exhausted {
+  background: rgba(170, 116, 32, 0.08);
+  border-color: rgba(170, 116, 32, 0.28);
+}
+
+.quota-card strong {
+  display: block;
+  font-size: 17px;
+  margin: 4px 0;
+}
+
+.quota-card p {
+  color: var(--muted);
+  font-size: 12px;
+  margin: 0;
+}
+
+.quota-meter {
+  background: rgba(37, 111, 97, 0.13);
+  border-radius: 999px;
+  height: 9px;
+  overflow: hidden;
+}
+
+.quota-meter span {
+  background: var(--teal);
+  border-radius: inherit;
+  display: block;
+  height: 100%;
+  transition: width 180ms ease;
+}
+
 .dashboard-hero,
 .exam-prep-hero {
   align-items: center;
@@ -2687,6 +2730,10 @@ button:not(.icon-button):not(.session-open):not(.session-favorite):not(.session-
   .prep-step-grid,
   .report-grid,
   .account-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .quota-card {
     grid-template-columns: 1fr;
   }
 

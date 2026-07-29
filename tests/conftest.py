@@ -20,6 +20,8 @@ def test_client(tmp_path, monkeypatch) -> Iterator[TestClient]:
     monkeypatch.setenv("MOCK_AI", "true")
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     monkeypatch.setenv("OPENAI_MODEL", "test-model")
+    monkeypatch.setenv("FREE_MONTHLY_AI_LIMIT", "5")
+    monkeypatch.setenv("GENERATION_DUPLICATE_WINDOW_SECONDS", "0")
     monkeypatch.setenv("PER_USER_DAILY_AI_LIMIT", "20")
     monkeypatch.setenv("GLOBAL_DAILY_AI_LIMIT", "100")
     monkeypatch.setenv("GOOGLE_CLIENT_ID", "")

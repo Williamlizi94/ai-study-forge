@@ -14,6 +14,17 @@ class AuthStatus(BaseModel):
     google_auth_enabled: bool = False
     per_user_daily_ai_limit: int
     global_daily_ai_limit: int
+    free_monthly_ai_limit: int = 5
+
+
+class GenerationQuota(BaseModel):
+    plan: str
+    period: str
+    limit: int
+    used: int
+    remaining: int
+    resets_at: str
+    upgrade_available: bool
 
 
 class AuthLoginRequest(BaseModel):

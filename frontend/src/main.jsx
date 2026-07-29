@@ -86,6 +86,7 @@ function App() {
   const [feedbackText, setFeedbackText] = React.useState("");
   const [authReady, setAuthReady] = React.useState(false);
   const [authStatus, setAuthStatus] = React.useState(null);
+  const [generationQuota, setGenerationQuota] = React.useState(null);
   const [authToken, setAuthToken] = React.useState(() => localStorage.getItem(AUTH_TOKEN_KEY) || "");
   const [authUser, setAuthUser] = React.useState(() => readStoredAuthUser());
   const [authFormMode, setAuthFormMode] = React.useState("login");
@@ -172,7 +173,7 @@ function App() {
       setAuthToken(storedToken);
       setAuthUser(readStoredAuthUser());
       if (!status.auth_required || storedToken) {
-        await loadSessions();
+        await Promise.all([loadSessions(), loadGenerationQuota()]);
       }
     } catch (error) {
       showNotice(error.message, "error");
@@ -329,6 +330,18 @@ function App() {
     }
   }
 
+  async function loadGenerationQuota() {
+    try {
+      setGenerationQuota(await apiRequest("/account/quota"));
+    } catch (error) {
+      if (error.status === 401) {
+        setGenerationQuota(null);
+        return;
+      }
+      showNotice(error.message, "error");
+    }
+  }
+
   async function handleAccessLogin(event) {
     event.preventDefault();
     setAccessError("");
@@ -355,6 +368,7 @@ function App() {
       setAuthEmail("");
       setAccessPassword("");
       await loadSessions();
+      await loadGenerationQuota();
     } catch (error) {
       setAccessError(error.message);
     } finally {
@@ -375,6 +389,7 @@ function App() {
     localStorage.removeItem(AUTH_USER_KEY);
     setAuthToken("");
     setAuthUser(null);
+    setGenerationQuota(null);
     setAccountMenuOpen(false);
     setAccountSettingsOpen(false);
     setFavoritesOpen(false);
@@ -537,6 +552,7 @@ function App() {
         resetWorkspaceDraft();
       }
       await loadSessions();
+      await loadGenerationQuota();
       showNotice("History record deleted.");
     } catch (error) {
       showNotice(error.message, "error");
@@ -567,6 +583,7 @@ function App() {
       resetWorkspaceDraft();
       setClearConfirmOpen(false);
       await loadSessions();
+      await loadGenerationQuota();
       showNotice("History cleared.");
     } catch (error) {
       showNotice(error.message, "error");
@@ -643,6 +660,7 @@ function App() {
         setTargetedPracticeReview(null);
       }
       await loadSessions();
+      await loadGenerationQuota();
       showNotice(`${labelForKind(kind)} ready.`);
     } catch (error) {
       showNotice(error.message, "error");
@@ -679,6 +697,7 @@ function App() {
       setQuizAnswers({});
       setQuizReview(null);
       await loadSessions();
+      await loadGenerationQuota();
       setActiveTab("exam-prep");
       showNotice("Exam Review Pack ready.");
     } catch (error) {
@@ -712,6 +731,7 @@ function App() {
       setCurrentSession(result.session);
       setQuizReview(result.review);
       await loadSessions();
+      await loadGenerationQuota();
       showNotice("Tutor review ready.");
     } catch (error) {
       showNotice(error.message, "error");
@@ -773,6 +793,7 @@ function App() {
       setCurrentSession(result.session);
       setDiagnosticReview(result.review);
       await loadSessions();
+      await loadGenerationQuota();
       showNotice("Weakness report ready.");
     } catch (error) {
       showNotice(error.message, "error");
@@ -834,6 +855,7 @@ function App() {
       setCurrentSession(result.session);
       setChatQuestion("");
       await loadSessions();
+      await loadGenerationQuota();
     } catch (error) {
       showNotice(error.message, "error");
     } finally {
@@ -1150,6 +1172,7 @@ function App() {
                 onUploadFocus={focusStudyMaterial}
                 isGeneratingPack={Boolean(busy["exam-pack"])}
                 onUpgrade={openUpgradeDialog}
+                quota={generationQuota}
               />
             )}
             {activeTab === "exam-prep" && (
@@ -1366,8 +1389,8 @@ const AccountMenu = React.forwardRef(function AccountMenu(
               <strong>{favoritesCount}</strong>
             </div>
             <div>
-              <span>AI limit</span>
-              <strong>{limits?.per_user_daily_ai_limit ?? 0}</strong>
+              <span>Monthly AI limit</span>
+              <strong>{limits?.free_monthly_ai_limit ?? 5}</strong>
             </div>
           </div>
 
@@ -1452,6 +1475,15 @@ function formatCount(count, singular, plural = `${singular}s`) {
   return `${value} ${value === 1 ? singular : plural}`;
 }
 
+function formatQuotaReset(value) {
+  if (!value) return "next month";
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date(value));
+}
+
 function DashboardPanel({
   sessions,
   stats,
@@ -1464,9 +1496,11 @@ function DashboardPanel({
   onUploadFocus,
   isGeneratingPack,
   onUpgrade,
+  quota,
 }) {
   const recentSessions = sessions.slice(0, 4);
   const missedCount = quizReview?.incorrect?.length ?? 0;
+  const quotaExhausted = quota?.limit > 0 && quota.remaining === 0;
   const readinessItems = [
     { label: "Material", value: stats.files ? "Added" : "Not added" },
     { label: "AI Notes", value: stats.notes ? "Ready" : "Not ready" },
@@ -1525,7 +1559,7 @@ function DashboardPanel({
           <button
             type="button"
             onClick={onGeneratePack}
-            disabled={!hasMaterial || isGeneratingPack}
+            disabled={!hasMaterial || isGeneratingPack || quotaExhausted}
             title={!hasMaterial ? "Upload material first to generate your exam review pack." : undefined}
           >
             {isGeneratingPack ? <Loader2 className="spin" size={16} /> : <GraduationCap size={16} />}
@@ -1544,6 +1578,31 @@ function DashboardPanel({
           )}
         </div>
       </div>
+
+      {quota && (
+        <section className={`quota-card ${quotaExhausted ? "exhausted" : ""}`}>
+          <div>
+            <span className="eyebrow">{quota.plan} plan · monthly allowance</span>
+            <strong>
+              {quota.remaining} of {quota.limit} generations remaining
+            </strong>
+            <p>Resets {formatQuotaReset(quota.resets_at)}. Failed requests do not use quota.</p>
+          </div>
+          <div className="quota-meter" aria-label={`${quota.remaining} generations remaining`}>
+            <span
+              style={{
+                width: `${quota.limit > 0 ? Math.max(0, (quota.remaining / quota.limit) * 100) : 100}%`,
+              }}
+            />
+          </div>
+          {quotaExhausted && (
+            <button type="button" onClick={onUpgrade}>
+              <Crown size={16} />
+              <span>View upgrade options</span>
+            </button>
+          )}
+        </section>
+      )}
 
       <div className="readiness-strip">
         {readinessItems.map((item) => (
@@ -1946,7 +2005,7 @@ function AccessGate({
 
         {limits && (
           <div className="access-limits">
-            <span>{limits.per_user_daily_ai_limit} AI generations per visitor per day</span>
+            <span>{limits.free_monthly_ai_limit} AI generations per free user per month</span>
             <span>{limits.global_daily_ai_limit} site-wide AI generations per day</span>
           </div>
         )}
@@ -2026,8 +2085,8 @@ function AccountSettingsDialog({
             <strong>{sessionsCount}</strong>
           </div>
           <div className="account-detail-card">
-            <span>Daily AI limit</span>
-            <strong>{limits?.per_user_daily_ai_limit ?? 0}</strong>
+            <span>Monthly AI limit</span>
+            <strong>{limits?.free_monthly_ai_limit ?? 5}</strong>
           </div>
         </div>
 
@@ -3290,7 +3349,10 @@ async function apiRequest(path, options = {}) {
     let detail = `Request failed with status ${response.status}`;
     try {
       const payload = await response.json();
-      detail = payload.detail || detail;
+      detail =
+        typeof payload.detail === "object"
+          ? payload.detail?.message || detail
+          : payload.detail || detail;
     } catch {
       // Keep fallback.
     }
