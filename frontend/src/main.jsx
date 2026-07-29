@@ -7,6 +7,7 @@ import {
   BookOpen,
   Brain,
   CheckCircle2,
+  ChevronDown,
   ClipboardCheck,
   ClipboardList,
   CircleHelp,
@@ -33,7 +34,12 @@ import {
 } from "lucide-react";
 import "katex/dist/katex.min.css";
 import "./styles.css";
+import "./reference-ui.css";
 import LandingPage from "./LandingPage";
+import AppSidebar from "./components/AppSidebar";
+import DashboardUploadPanel from "./components/DashboardUploadPanel";
+import StudyGettingStartedGuide from "./components/StudyGettingStartedGuide";
+import UploadDrawer from "./components/UploadDrawer";
 
 const API_BASE = "/api";
 const APP_NAME = "AI Study Forge";
@@ -41,17 +47,6 @@ const APP_DOMAIN = "aistudyforge.com";
 const LEGAL_LAST_UPDATED = "July 8, 2026";
 const AUTH_TOKEN_KEY = "aiStudyAssistantAuthToken";
 const AUTH_USER_KEY = "aiStudyAssistantAuthUser";
-
-const tabs = [
-  { id: "exam-prep", label: "Exam Prep", icon: GraduationCap, priority: "primary" },
-  { id: "quiz", label: "Practice Quiz", icon: CircleHelp, priority: "primary" },
-  { id: "chat", label: "Ask AI Tutor", icon: MessageSquareText, priority: "primary" },
-  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, priority: "secondary" },
-  { id: "summary", label: "AI Notes", icon: FileText, priority: "secondary" },
-  { id: "cheat-sheet", label: "Cheat Sheet", icon: ClipboardList, priority: "secondary" },
-  { id: "flashcards", label: "Flashcards", icon: Layers3, priority: "secondary" },
-  { id: "mistakes", label: "Mistakes", icon: BookMarked, priority: "secondary" },
-];
 
 function App() {
   const fileInputRef = React.useRef(null);
@@ -95,6 +90,8 @@ function App() {
   const [accessPassword, setAccessPassword] = React.useState("");
   const [accessError, setAccessError] = React.useState("");
   const [busy, setBusyState] = React.useState({});
+  const [uploadDrawerOpen, setUploadDrawerOpen] = React.useState(false);
+  const [sidebarOpen, setSidebarOpen] = React.useState(false);
 
   React.useEffect(() => {
     consumeAuthRedirect();
@@ -218,8 +215,7 @@ function App() {
   }
 
   function focusStudyMaterial() {
-    const target = studyMaterialPanelRef.current ?? sourceTextareaRef.current ?? fileInputRef.current;
-    target?.scrollIntoView({ behavior: "smooth", block: "center" });
+    setUploadDrawerOpen(true);
     setHighlightStudyMaterial(true);
     window.setTimeout(() => setHighlightStudyMaterial(false), 1800);
 
@@ -522,6 +518,7 @@ function App() {
       setSelectedFile(null);
       resetFileInput();
       showNotice("Material processed. Generate an exam review pack when ready.");
+      setUploadDrawerOpen(false);
     } catch (error) {
       showNotice(error.message, "error");
     } finally {
@@ -893,7 +890,7 @@ function App() {
         />
       ) : (
       <>
-      <header className="topbar">
+      <header className={isAppLoading || isAccessLocked ? "topbar" : "app-topbar-hidden"}>
         <div className="brand-lockup">
           <div className="brand-mark">
             <BookOpen size={22} aria-hidden="true" />
@@ -963,8 +960,24 @@ function App() {
           onSubmit={handleAccessLogin}
         />
       ) : (
-      <main className="shell">
-        <aside className="sidebar" aria-label="Study material and history">
+      <main className="app-shell">
+        <AppSidebar
+          activeTab={activeTab}
+          user={authUser}
+          plan={authUser?.plan ? `${authUser.plan.slice(0, 1).toUpperCase()}${authUser.plan.slice(1)}` : "Free"}
+          filesCount={sessions.length || stats.files}
+          quota={generationQuota}
+          isOpen={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          onNavigate={(tab) => {
+            if (tab === "__menu__") { setSidebarOpen(true); return; }
+            setActiveTab(tab);
+          }}
+          onUpgrade={openUpgradeDialog}
+          onSettings={openAccountSettings}
+          onLogout={clearAuthToken}
+        />
+        <aside className="legacy-sidebar" aria-hidden="true">
           <section
             ref={studyMaterialPanelRef}
             className={highlightStudyMaterial ? "tool-panel study-material-panel is-highlighted" : "tool-panel study-material-panel"}
@@ -1095,66 +1108,24 @@ function App() {
         </aside>
 
         <section className="workspace" aria-label="Study workspace">
-          <div className="workspace-header">
+          <div className="workspace-header app-workspace-header">
             <div>
               <h2>{activeTab === "dashboard" ? "Study Workspace" : currentSession ? currentSession.title : "Workspace"}</h2>
               <p>
-                {currentSession
-                  ? currentSession.title
-                  : sourceText.trim()
-                    ? "Material ready for exam prep"
-                    : "Upload notes, paste text, or open history"}
+                {activeTab === "dashboard"
+                  ? "Upload materials and use AI to study smarter, not harder."
+                  : currentSession
+                    ? currentSession.title
+                    : sourceText.trim()
+                      ? "Material ready for exam prep"
+                      : "Upload notes, paste text, or open history"}
               </p>
             </div>
-            {currentSession && (
-              <button
-                className={currentSession.is_favorite ? "favorite-current-button active" : "favorite-current-button"}
-                type="button"
-                onClick={() => toggleSessionFavorite(currentSession.id, !currentSession.is_favorite)}
-                disabled={busy[`favorite-${currentSession.id}`]}
-                aria-pressed={Boolean(currentSession.is_favorite)}
-              >
-                {busy[`favorite-${currentSession.id}`] ? (
-                  <Loader2 className="spin" size={16} />
-                ) : (
-                  <Star size={16} fill={currentSession.is_favorite ? "currentColor" : "none"} />
-                )}
-                <span>{currentSession.is_favorite ? "Favorited" : "Add favorite"}</span>
-              </button>
-            )}
-            <div className="stat-strip" aria-label="Study stats">
-              <Stat label="Files" value={stats.files.toLocaleString()} />
-              <Stat label="Notes" value={stats.notes.toLocaleString()} />
-              <Stat label="Questions" value={stats.questions.toLocaleString()} />
-              <Stat label="Flashcards" value={stats.flashcards.toLocaleString()} />
-              <Stat label="Tutor Chats" value={stats.tutorChats.toLocaleString()} />
+            <div className="workspace-header-actions">
+              <button className="primary-button add-material-button" type="button" onClick={() => setUploadDrawerOpen(true)}><Upload size={17} />Add Study Material</button>
+              <button className="header-user-button" type="button" onClick={openAccountSettings} aria-label="Open account settings"><span>{(authUser?.email?.[0] || "W").toUpperCase()}</span><ChevronDown size={16} /></button>
             </div>
           </div>
-
-          <nav className="tabs" aria-label="Study tools">
-            {tabs.map((tab) => {
-              const Icon = tab.icon;
-              const requiresMaterial = ["exam-prep", "quiz", "chat"].includes(tab.id);
-              const tabDisabled = requiresMaterial && !hasStudyMaterial;
-              const tabClassName = [
-                activeTab === tab.id ? "active" : "",
-                tab.priority === "primary" ? "tab-primary" : "tab-secondary",
-              ].filter(Boolean).join(" ");
-              return (
-                <button
-                  key={tab.id}
-                  className={tabClassName}
-                  type="button"
-                  disabled={tabDisabled}
-                  title={tabDisabled ? "Upload material first to unlock exam prep tools" : undefined}
-                  onClick={() => setActiveTab(tab.id)}
-                >
-                  <Icon size={16} aria-hidden="true" />
-                  <span>{tab.label}</span>
-                </button>
-              );
-            })}
-          </nav>
 
           {notice && <div className={`notice ${notice.tone}`}>{notice.message}</div>}
 
@@ -1173,7 +1144,27 @@ function App() {
                 isGeneratingPack={Boolean(busy["exam-pack"])}
                 onUpgrade={openUpgradeDialog}
                 quota={generationQuota}
+                selectedFile={selectedFile}
+                isDraggingFile={isDraggingFile}
+                fileInputRef={fileInputRef}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onFileDrop={(event) => {
+                  handleFileDrop(event);
+                  setUploadDrawerOpen(true);
+                }}
+                onFileChoose={() => fileInputRef.current?.click()}
+                onFileChange={(event) => {
+                  handleFileInputChange(event);
+                  setUploadDrawerOpen(true);
+                }}
               />
+            )}
+            {(activeTab === "files" || activeTab === "history") && (
+              <section className="file-page content-panel">
+                <div className="content-header"><div><span className="eyebrow">{activeTab === "files" ? "YOUR MATERIALS" : "STUDY ACTIVITY"}</span><h3>{activeTab === "files" ? "My Files" : "History"}</h3><p>{activeTab === "files" ? "Open a study pack to continue learning or manage its saved material." : "Your recently created study packs and learning activity."}</p></div><button className="secondary-button" type="button" onClick={focusStudyMaterial}><Upload size={16} />Add material</button></div>
+                <SessionList sessions={sessions} activeId={currentSession?.id} onOpen={openSession} onToggleFavorite={toggleSessionFavorite} onDelete={deleteStudySession} isDeleting={(sessionId) => Boolean(busy[`delete-${sessionId}`])} isFavoriteBusy={(sessionId) => Boolean(busy[`favorite-${sessionId}`])} />
+              </section>
             )}
             {activeTab === "exam-prep" && (
               <ExamPrepPanel
@@ -1328,6 +1319,26 @@ function App() {
           onSubmit={handleAccessLogin}
         />
       )}
+      <UploadDrawer
+        open={uploadDrawerOpen}
+        onClose={() => setUploadDrawerOpen(false)}
+        title={title}
+        onTitleChange={handleTitleChange}
+        selectedFile={selectedFile}
+        isDraggingFile={isDraggingFile}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleFileDrop}
+        fileInputRef={fileInputRef}
+        onFileChange={handleFileInputChange}
+        busy={busy.upload}
+        onProcess={uploadDocument}
+        uploadedMaterial={uploadedMaterial}
+        sourceText={sourceText}
+        sourceTextareaRef={sourceTextareaRef}
+        onSourceTextChange={handleSourceTextChange}
+        characters={stats.chars}
+      />
     </div>
   );
 }
@@ -1497,10 +1508,71 @@ function DashboardPanel({
   isGeneratingPack,
   onUpgrade,
   quota,
+  selectedFile,
+  isDraggingFile,
+  fileInputRef,
+  onDragOver,
+  onDragLeave,
+  onFileDrop,
+  onFileChoose,
+  onFileChange,
 }) {
-  const recentSessions = sessions.slice(0, 4);
-  const missedCount = quizReview?.incorrect?.length ?? 0;
+  const lastSession = currentSession || sessions[0];
   const quotaExhausted = quota?.limit > 0 && quota.remaining === 0;
+  const metrics = [
+    [FileText, sessions.length || stats.files, "Files", "mint"],
+    [ClipboardList, stats.notes, "Notes", "blue"],
+    [CircleHelp, stats.questions, "Questions", "violet"],
+    [Layers3, stats.flashcards, "Flashcards", "peach"],
+    [MessageSquareText, stats.tutorChats, "Tutor Chats", "cyan"],
+  ];
+  const quickActions = [
+    [GraduationCap, "Generate Exam Review Pack", "Create notes, cheat sheets, flashcards, and practice quiz.", "mint", onGeneratePack, !hasMaterial || isGeneratingPack || quotaExhausted],
+    [CircleHelp, "Practice Quiz", "Test your knowledge with AI-generated questions.", "violet", () => onSelectTool("quiz"), !hasMaterial],
+    [MessageSquareText, "Ask AI Tutor", "Get explanations and answers to your questions.", "blue", () => onSelectTool("chat"), !hasMaterial],
+    [BookMarked, "Review Mistakes", "Focus on questions you got wrong.", "peach", () => onSelectTool("mistakes"), false],
+  ];
+  const recentSessions = sessions.slice(0, 3);
+  const usageRows = [
+    [Sparkles, "AI Generations", quota ? `${quota.remaining} / ${quota.limit} left` : "Loading"],
+    [MessageSquareText, "AI Tutor Chats", "Available with your plan"],
+    [Upload, "File Uploads", "Available with your plan"],
+  ];
+
+  return <section className="dashboard-exact">
+    <DashboardUploadPanel
+      selectedFile={selectedFile}
+      isDragging={isDraggingFile}
+      fileInputRef={fileInputRef}
+      onChooseFile={onFileChoose}
+      onPasteText={onUploadFocus}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onFileDrop}
+      onFileChange={onFileChange}
+    />
+    <div className="dashboard-metrics">{metrics.map(([Icon, value, label, tone]) => <article key={label} className="metric-card"><span className={`metric-icon ${tone}`}><Icon size={22} /></span><div><strong>{value}</strong><small>{label}</small></div></article>)}</div>
+    <div className="dashboard-primary-grid">
+      <div className="dashboard-left-stack">
+        <section className="continue-card">
+          <div className="dashboard-card-title"><h3>Continue Studying</h3><span>Last study</span></div>
+          {lastSession ? <article className="continue-session"><span className="document-icon"><FileText size={23} /></span><div className="continue-copy"><strong>{lastSession.title}</strong><small>{sessionSummary(lastSession)}</small><div className="study-progress"><i style={{ width: `${Math.min(100, Math.max(18, (stats.notes + stats.questions + stats.flashcards) * 18))}%` }} /></div><small>Keep building your study pack</small></div><button type="button" onClick={() => onOpenSession(lastSession.id)}>Continue <ArrowRight size={16} /></button></article> : <div className="continue-empty"><strong>Ready to start your first study pack?</strong><button type="button" onClick={onUploadFocus}>Add Study Material <ArrowRight size={16} /></button></div>}
+        </section>
+        <section className="quick-actions-card"><h3>Quick Actions</h3><div>{quickActions.map(([Icon, title, body, tone, onClick, disabled]) => <button className={`quick-action ${tone}`} type="button" key={title} onClick={onClick} disabled={disabled}><span><Icon size={18} /></span><strong>{title}</strong><small>{body}</small><ArrowRight size={17} /></button>)}</div></section>
+      </div>
+      <section className="usage-panel"><h3>Free Plan <b>·</b> Monthly Allowance</h3><p>{quota ? `Resets ${formatQuotaReset(quota.resets_at)}` : "Your current plan allowance"}</p><div className="usage-rows">{usageRows.map(([Icon, label, value], index) => <div className="usage-row" key={label}><div><Icon size={16} /><strong>{label}</strong><span>{index === 0 ? value : value}</span></div><div className="usage-track"><i style={{ width: index === 0 && quota ? `${(quota.remaining / quota.limit) * 100}%` : "100%" }} /></div></div>)}</div><button type="button" onClick={() => onSelectTool("history")}>View full usage details <ArrowRight size={15} /></button></section>
+    </div>
+    <div className="dashboard-bottom-grid">
+      <section className="compact-list-card"><h3>Recent Files</h3>{recentSessions.length ? recentSessions.map((session, index) => <button key={session.id} type="button" onClick={() => onOpenSession(session.id)}><span className="file-row-icon"><FileText size={17} /></span><div><strong>{session.title}</strong><small>{index === 0 ? "Most recent study pack" : `Study pack ${index + 1}`}</small></div><em>PDF</em></button>) : <p>No study files yet. Add material to begin.</p>}<button className="list-footer" type="button" onClick={() => onSelectTool("files")}>View all files <ArrowRight size={15} /></button></section>
+      <section className="compact-list-card activity-card"><h3>Recent Activity</h3>{recentSessions.length ? recentSessions.map((session, index) => <button key={session.id} type="button" onClick={() => onOpenSession(session.id)}><span className="activity-row-icon"><Sparkles size={16} /></span><div><strong>{index === 0 ? "Study pack updated" : "Study pack created"}</strong><small>{session.title}</small></div><time>{index === 0 ? "Recently" : `${index + 1} days ago`}</time></button>) : <p>Your study activity will appear here.</p>}<button className="list-footer" type="button" onClick={() => onSelectTool("history")}>View all activity <ArrowRight size={15} /></button></section>
+      <section className="pro-card"><span><Crown size={18} /></span><h3>Unlock Pro</h3><p>Get more generations, higher upload limits, and advanced AI features.</p><ul><li>Unlimited AI generations</li><li>Upload up to 200MB per file</li><li>Longer AI Tutor conversations</li><li>Export notes & flashcards</li></ul><button type="button" onClick={onUpgrade}>Upgrade to Pro <ArrowRight size={16} /></button></section>
+      <StudyGettingStartedGuide />
+    </div>
+  </section>;
+  /* Legacy dashboard retained below for rollback reference. */
+  const legacyRecentSessions = sessions.slice(0, 4);
+  const missedCount = quizReview?.incorrect?.length ?? 0;
+  const legacyQuotaExhausted = quota?.limit > 0 && quota.remaining === 0;
   const readinessItems = [
     { label: "Material", value: stats.files ? "Added" : "Not added" },
     { label: "AI Notes", value: stats.notes ? "Ready" : "Not ready" },
@@ -1552,14 +1624,14 @@ function DashboardPanel({
             flashcards, and AI tutor responses based on your course content.
           </p>
           {!hasMaterial && (
-            <p className="hero-hint">Start by uploading a file or pasting course material on the left.</p>
+                <p className="hero-hint">Start by adding a file or pasting course material.</p>
           )}
         </div>
         <div className="dashboard-hero-actions">
           <button
             type="button"
             onClick={onGeneratePack}
-            disabled={!hasMaterial || isGeneratingPack || quotaExhausted}
+            disabled={!hasMaterial || isGeneratingPack || legacyQuotaExhausted}
             title={!hasMaterial ? "Upload material first to generate your exam review pack." : undefined}
           >
             {isGeneratingPack ? <Loader2 className="spin" size={16} /> : <GraduationCap size={16} />}
@@ -1580,7 +1652,7 @@ function DashboardPanel({
       </div>
 
       {quota && (
-        <section className={`quota-card ${quotaExhausted ? "exhausted" : ""}`}>
+        <section className={`quota-card ${legacyQuotaExhausted ? "exhausted" : ""}`}>
           <div>
             <span className="eyebrow">{quota.plan} plan · monthly allowance</span>
             <strong>
@@ -1595,7 +1667,7 @@ function DashboardPanel({
               }}
             />
           </div>
-          {quotaExhausted && (
+          {legacyQuotaExhausted && (
             <button type="button" onClick={onUpgrade}>
               <Crown size={16} />
               <span>View upgrade options</span>
@@ -1650,9 +1722,9 @@ function DashboardPanel({
           <div className="section-title-row">
             <h3>Continue Studying</h3>
           </div>
-          {recentSessions.length ? (
+          {legacyRecentSessions.length ? (
             <div className="recent-session-list">
-              {recentSessions.map((session) => (
+              {legacyRecentSessions.map((session) => (
                 <button
                   className="recent-session"
                   type="button"
