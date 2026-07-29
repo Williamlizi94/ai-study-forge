@@ -18,7 +18,12 @@ const navigation = [
 ];
 
 export default function AppSidebar({ activeTab, onNavigate, user, plan, filesCount = 0, quota, onUpgrade, onSettings, onLogout, isOpen, onClose }) {
-  const generationLabel = quota ? `${quota.remaining} / ${quota.limit} generations left` : "5 / 5 generations left";
+  const planLabel = plan === "pro" ? "Pro" : plan === "internal_test" ? "Test" : `${plan || "free"}`.slice(0, 1).toUpperCase() + `${plan || "free"}`.slice(1);
+  const generationLabel = quota
+    ? quota.limit > 0
+      ? `${quota.remaining} / ${quota.limit} generations left`
+      : "Unlimited generations"
+    : "5 / 5 generations left";
   return (
     <>
       <button className="sidebar-toggle" type="button" aria-label="Open navigation" onClick={() => onNavigate("__menu__")}><Menu size={21} /></button>
@@ -29,7 +34,7 @@ export default function AppSidebar({ activeTab, onNavigate, user, plan, filesCou
           <button className="sidebar-user sidebar-workspace-card" type="button" onClick={onSettings} aria-label="Open workspace settings">
             <span className="sidebar-workspace-title"><Sparkles size={16} /><strong>Your study workspace</strong></span>
             <span className="sidebar-workspace-description">Upload materials and study smarter with AI.</span>
-            <span className="sidebar-plan">{plan} Plan</span>
+            <span className="sidebar-plan">{planLabel} Plan</span>
             <span className="sidebar-workspace-stat"><FileText size={16} />{filesCount} {filesCount === 1 ? "file" : "files"}</span>
             <span className="sidebar-workspace-stat"><Sparkles size={16} />{generationLabel}</span>
           </button>

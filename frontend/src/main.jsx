@@ -328,7 +328,14 @@ function App() {
 
   async function loadGenerationQuota() {
     try {
-      setGenerationQuota(await apiRequest("/account/quota"));
+      const quota = await apiRequest("/account/quota");
+      setGenerationQuota(quota);
+      setAuthUser((currentUser) => {
+        if (!currentUser || currentUser.plan === quota.plan) return currentUser;
+        const updatedUser = { ...currentUser, plan: quota.plan };
+        localStorage.setItem(AUTH_USER_KEY, JSON.stringify(updatedUser));
+        return updatedUser;
+      });
     } catch (error) {
       if (error.status === 401) {
         setGenerationQuota(null);
@@ -964,7 +971,7 @@ function App() {
         <AppSidebar
           activeTab={activeTab}
           user={authUser}
-          plan={authUser?.plan ? `${authUser.plan.slice(0, 1).toUpperCase()}${authUser.plan.slice(1)}` : "Free"}
+          plan={generationQuota?.plan || authUser?.plan || "free"}
           filesCount={sessions.length || stats.files}
           quota={generationQuota}
           isOpen={sidebarOpen}
@@ -1495,6 +1502,12 @@ function formatQuotaReset(value) {
   }).format(new Date(value));
 }
 
+function formatPlanName(plan) {
+  if (plan === "pro") return "Pro";
+  if (plan === "internal_test") return "Test";
+  return plan ? `${plan.slice(0, 1).toUpperCase()}${plan.slice(1)}` : "Free";
+}
+
 function DashboardPanel({
   sessions,
   stats,
@@ -1519,6 +1532,7 @@ function DashboardPanel({
 }) {
   const lastSession = currentSession || sessions[0];
   const quotaExhausted = quota?.limit > 0 && quota.remaining === 0;
+  const planName = formatPlanName(quota?.plan);
   const metrics = [
     [FileText, sessions.length || stats.files, "Files", "mint"],
     [ClipboardList, stats.notes, "Notes", "blue"],
@@ -1534,7 +1548,7 @@ function DashboardPanel({
   ];
   const recentSessions = sessions.slice(0, 3);
   const usageRows = [
-    [Sparkles, "AI Generations", quota ? `${quota.remaining} / ${quota.limit} left` : "Loading"],
+    [Sparkles, "AI Generations", quota ? quota.limit > 0 ? `${quota.remaining} / ${quota.limit} left` : "Unlimited" : "Loading"],
     [MessageSquareText, "AI Tutor Chats", "Available with your plan"],
     [Upload, "File Uploads", "Available with your plan"],
   ];
@@ -1560,7 +1574,7 @@ function DashboardPanel({
         </section>
         <section className="quick-actions-card"><h3>Quick Actions</h3><div>{quickActions.map(([Icon, title, body, tone, onClick, disabled]) => <button className={`quick-action ${tone}`} type="button" key={title} onClick={onClick} disabled={disabled}><span><Icon size={18} /></span><strong>{title}</strong><small>{body}</small><ArrowRight size={17} /></button>)}</div></section>
       </div>
-      <section className="usage-panel"><h3>Free Plan <b>·</b> Monthly Allowance</h3><p>{quota ? `Resets ${formatQuotaReset(quota.resets_at)}` : "Your current plan allowance"}</p><div className="usage-rows">{usageRows.map(([Icon, label, value], index) => <div className="usage-row" key={label}><div><Icon size={16} /><strong>{label}</strong><span>{index === 0 ? value : value}</span></div><div className="usage-track"><i style={{ width: index === 0 && quota ? `${(quota.remaining / quota.limit) * 100}%` : "100%" }} /></div></div>)}</div><button type="button" onClick={() => onSelectTool("history")}>View full usage details <ArrowRight size={15} /></button></section>
+      <section className="usage-panel"><h3>{planName} Plan <b>·</b> Monthly Allowance</h3><p>{quota?.limit > 0 ? `Resets ${formatQuotaReset(quota.resets_at)}` : "Unlimited generations for this plan"}</p><div className="usage-rows">{usageRows.map(([Icon, label, value], index) => <div className="usage-row" key={label}><div><Icon size={16} /><strong>{label}</strong><span>{value}</span></div><div className="usage-track"><i style={{ width: index === 0 && quota?.limit > 0 ? `${(quota.remaining / quota.limit) * 100}%` : "100%" }} /></div></div>)}</div><button type="button" onClick={() => onSelectTool("history")}>View full usage details <ArrowRight size={15} /></button></section>
     </div>
     <div className="dashboard-bottom-grid">
       <section className="compact-list-card"><h3>Recent Files</h3>{recentSessions.length ? recentSessions.map((session, index) => <button key={session.id} type="button" onClick={() => onOpenSession(session.id)}><span className="file-row-icon"><FileText size={17} /></span><div><strong>{session.title}</strong><small>{index === 0 ? "Most recent study pack" : `Study pack ${index + 1}`}</small></div><em>PDF</em></button>) : <p>No study files yet. Add material to begin.</p>}<button className="list-footer" type="button" onClick={() => onSelectTool("files")}>View all files <ArrowRight size={15} /></button></section>
